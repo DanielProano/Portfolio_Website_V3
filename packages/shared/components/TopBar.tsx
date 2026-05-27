@@ -28,9 +28,9 @@ export function TopBar() {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, [lastScrollY]);
-    
+
     return (
-        <AppBar position="sticky" sx={{ backgroundColor: '#2a3b5a', boxShadow: 20 }}>
+        <AppBar position="sticky" sx={{ backgroundColor: '#2a3b5a', boxShadow: 20, transform: isVisible ? 'translateY(0)' : 'translate(-100%)', }}>
             <Container maxWidth="lg">
                 <Toolbar sx={{ justifyContent: 'space-between', py: 1.5 }}>
                     <Typography 
