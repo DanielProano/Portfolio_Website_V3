@@ -21,9 +21,14 @@ export function TopBar() {
     useEffect(() => {
         const handleScroll = () => {
             const currentScrollY = window.scrollY;
-            setIsVisble(currentScrollY < )
-        }
-    }
+            setIsVisble(currentScrollY < lastScrollY || currentScrollY < 50);
+            setLastScrollY(currentScrollY);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [lastScrollY]);
+    
     return (
         <AppBar position="sticky" sx={{ backgroundColor: '#2a3b5a', boxShadow: 20 }}>
             <Container maxWidth="lg">
