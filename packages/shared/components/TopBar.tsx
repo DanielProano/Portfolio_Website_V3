@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 const navButtonStyle = {
     color: '#f0e8e8',
@@ -150,6 +151,12 @@ export function TopBar() {
                         sx={iconStyle}
                     >
                         <LinkedInIcon />
+                    </IconButton>
+                    <IconButton
+                        href="/login" 
+                        sx={iconStyle}
+                    >
+                        <AccountCircleIcon />
                     </IconButton>
                 </Box>
             </Toolbar>
