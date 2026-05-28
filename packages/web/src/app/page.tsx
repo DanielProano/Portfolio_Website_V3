@@ -32,7 +32,7 @@ export default function Home() {
 
   return (
     <Container maxWidth="lg">
-      <Stack direction="row" spacing={6} sx={{ minHeight: '500vh', alignItems: 'center' }}>
+      <Stack direction="row" spacing={6} sx={{ minHeight: '700vh', alignItems: 'center' }}>
         <Box
           sx={{
             flex: '0 0 300px',
