@@ -28,6 +28,26 @@ const highlights = [
     link: "https://github.com/EVC-Purdue/AutonomousKart"
   },
   {
+    title: "Firefly: A Real Time OS for the STM32",
+    description: "Coming Soon"
+  },
+  {
+    title: "Starling: An Autonomous Drone Fleet Coordinator",
+    description: "Coming Soon"
+  },
+  {
+    title: "Buffalo: A Secure Bootloader for STM32 in Spark ADA & C",
+    description: "Coming Soon"
+  },
+  {
+    title: "Dragonfly: A Drone Flight Controller",
+    description: "Coming Soon"
+  },
+  {
+    title: "A PHAL for a RaceCar",
+    description: "Coming Soon"
+  },
+  {
     title: "Vulnerability Research on Baby Monitor",
     description: "Software lead conducting vulnerability research using Android phone emulation and reverse engineering techniques to do binary exploitation, network analysis, and static analysis",
     image: "/projects/slideshow/research.jpeg",
