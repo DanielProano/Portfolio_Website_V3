@@ -145,13 +145,6 @@ export default function Home() {
             <Button 
               variant="contained" 
               sx={{ backgroundColor: '#fff', color: '#000', fontWeight: 'bold' }} 
-              href="/projects"
-            >
-              All Projects
-            </Button>
-            <Button 
-              variant="contained" 
-              sx={{ backgroundColor: '#fff', color: '#000', fontWeight: 'bold' }} 
               href="/blog"
             >
               Blog

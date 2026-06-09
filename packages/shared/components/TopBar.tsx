@@ -102,9 +102,15 @@ export function TopBar() {
                 <Box 
                     sx={{ display: 'flex', gap: 1, ml: 'auto', mr: 'auto'}}
                 >
-                    <Link href="/" style={{ textDecoration: 'none' }}>
-                        <Button sx={navButtonStyle}>Home</Button>
-                    </Link>
+                    <Button 
+                        sx={navButtonStyle} 
+                        onClick={() => {
+                            router.push('/');
+                            setSelectedOption('');
+                        }}
+                    >
+                        Home
+                    </Button>
                     
                     <Select 
                         value={selectedOption}
@@ -131,7 +137,7 @@ export function TopBar() {
                         onClose={() => setOpenProjectMenu(false)}
                     >
                         <MenuItem value="chess">Chess</MenuItem>
-                        <MenuItem value="vault">Password Manager</MenuItem>
+                        <MenuItem value="vault/login">Password Manager</MenuItem>
                     </Select>
                 </Box>
 
