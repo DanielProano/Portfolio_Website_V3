@@ -21,12 +21,12 @@ export default function LoginPage() {
     async function login() {
         try {
             const salt_response = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/salt?user=${encodeURIComponent(email)}`
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/salt?user=${encodeURIComponent(email)}`
             );
             const { master_salt } = await salt_response.json();
             const hash = bcrypt.hashSync(password, master_salt);
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/verify`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user: email, hash: hash }),
@@ -38,13 +38,45 @@ export default function LoginPage() {
                 const { token, salt } = data;
                 const key = await derive_key(password, salt);
                 set_derived_key({ key, token });
-                router.push('/vault');
+                router.push('vault');
             } else {
                 setOutput(data.message || 'Login failed, try again');
             }
         } catch (error) {
             console.error('Error:', error);
             setOutput('Login Error');
+        }
+    }
+
+    async function loginAsGuest() {
+        try {
+            const guestEmail = 'guest@demo.com';
+            const guestPassword = 'GuestDemo123!';
+            
+            const salt_response = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/salt?user=${encodeURIComponent(guestEmail)}`
+            );
+            const { master_salt } = await salt_response.json();
+            const hash = bcrypt.hashSync(guestPassword, master_salt);
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user: guestEmail, hash }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                const { token, salt } = data;
+                const key = await derive_key(guestPassword, salt);
+                set_derived_key({ key, token });
+                router.push('vault');
+            } else {
+                setOutput('Guest login unavailable');
+            }
+        } catch (error) {
+            setOutput('Guest login failed');
         }
     }
 
@@ -118,27 +150,37 @@ export default function LoginPage() {
                 </Button>
             </Box>
 
-            <Box sx={{ mt: 3 }}>
-                <Typography sx={{ color: '#fff' }}>
-                    {"Don't have an account? "}
-                    <Link style={{ color: "#9cdfee" }} href="/vault/register">Register</Link>
-                </Typography>
-            </Box>
+            <Typography
+                sx={{
+                    mt: 2,
+                    color: '#fff'
+                }}
+            >
+                or
+            </Typography>
 
-            {isDev && (
-                <Button
-                    variant="outlined"
-                    onClick={async () => {
-                        const fakeToken = "dev-token";
-                        const fakeKey = await derive_key("password123", "dev-salt");
-                        set_derived_key({ key: fakeKey, token: fakeToken });
-                        router.push('/vault');
-                    }}
-                    sx={{ mt: 2, borderRadius: '24px', borderColor: '#87a6ed' }}
-                >
-                    Dev
-                </Button>
-            )}
+            <Button
+                onClick={loginAsGuest}
+                variant="outlined"
+                sx={{
+                    mt: 1,
+                    borderRadius: '24px',
+                    borderColor: '#ccc',
+                    color: '#ccc',
+                    '&:hover': { backgroundColor: '#394b74' },
+                }}
+            >
+                Continue as Guest
+            </Button>
+
+            <Typography sx={{ color: '#fff', mt: 10 }}>
+                {"Don't have an account yet? "}
+                <Link style={{ color: "#9cdfee" }} href="/password/register">Register</Link>
+            </Typography>
+
+            <Typography sx={{ color: '#ec8989', mt: 1 }}>
+                Disclaimer: Not an Actual Password Manager
+            </Typography>
         </Box>
     );
 }

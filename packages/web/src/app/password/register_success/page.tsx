@@ -7,12 +7,12 @@ export default function RegisterSuccess() {
     const router = useRouter();
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 10 }}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 4 }}>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 4, color: '#fff' }}>
                 Registration Successful!
             </Typography>
             <Button
                 variant="outlined"
-                onClick={() => router.push('/vault/login')}
+                onClick={() => router.push('login')}
                 sx={{
                     borderRadius: '24px',
                     borderColor: '#87a6ed',

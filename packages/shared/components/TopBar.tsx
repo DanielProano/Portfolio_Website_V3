@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, Select, MenuItem, IconButton } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -82,7 +81,7 @@ export function TopBar() {
 
     return (
         <AppBar position="sticky" sx={{ 
-            backgroundColor: '#2a3b5a', 
+            backgroundColor: '#3a517c', 
             boxShadow: 5, 
             transform: isVisible ? 'translateY(0)' : 'translateY(-100%)', 
             transition: 'transform 0.3s ease-out',
@@ -137,7 +136,7 @@ export function TopBar() {
                         onClose={() => setOpenProjectMenu(false)}
                     >
                         <MenuItem value="chess">Chess</MenuItem>
-                        <MenuItem value="vault/login">Password Manager</MenuItem>
+                        <MenuItem value="password/login">Password Manager</MenuItem>
                     </Select>
                 </Box>
 

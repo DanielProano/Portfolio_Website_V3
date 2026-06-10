@@ -54,6 +54,12 @@ const highlights = [
     link: ""
   },
   {
+    title: "Portfolio Website",
+    description: "I've made 3 versions of my Portfolio website, getting experience in AWS, GCR, and Vercel.",
+    image: "",
+    link: "https://github.com/DanielProano/Portfolio_Website_V3"
+  },
+  {
     title: "A Modern Zero-Knowledge Password Manager",
     description: "A traditional password manager can leak your passwords, but my implementation of the Zero-Knowledge Architecture is designed to address that!",
     image: "/projects/highlights/PasswordManagerPhoto.png",
