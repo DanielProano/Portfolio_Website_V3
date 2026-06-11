@@ -2,17 +2,23 @@
 
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import type { PieceDropHandlerArgs } from 'react-chessboard';
 import { Box, TextField } from '@mui/material';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { IconButton } from '@mui/material';
+import init, { make_move } from '../engine/pkg/chessbot';
 
 export default function ChessPage() {
     const chessGameRef = useRef(new Chess());
     const chessGame = chessGameRef.current;
     const [chessPosition, setChessPosition] = useState(chessGame.fen());
     const [orientation, setOrientation] = useState<'white' | 'black'>('white');
+    const [engineReady, setEngineReady] = useState(false);
+
+    useEffect(() => {
+        init().then(() => setEngineReady(true));
+    }, []);
 
     function onPieceDrop({ sourceSquare, targetSquare }: PieceDropHandlerArgs) {
         if (!targetSquare) return false;
@@ -20,6 +26,15 @@ export default function ChessPage() {
         try {
             chessGame.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
             setChessPosition(chessGame.fen());
+
+            if (engineReady) {
+                const bestMove = make_move(chessGame.fen(), 3);
+                if (bestMove) {
+                    chessGame.load(bestMove);
+                    setChessPosition(bestMove);
+                }
+            }
+
             return true;
         } catch {
             return false;
