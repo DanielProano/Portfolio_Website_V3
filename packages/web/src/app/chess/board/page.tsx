@@ -30,6 +30,7 @@ export default function ChessPage() {
             if (engineReady) {
                 const bestMove = make_move(chessGame.fen(), 3);
                 if (bestMove) {
+                    console.log(bestMove);
                     chessGame.load(bestMove);
                     setChessPosition(bestMove);
                 }
