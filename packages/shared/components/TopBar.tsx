@@ -81,7 +81,7 @@ export function TopBar() {
 
     return (
         <AppBar position="sticky" sx={{ 
-            backgroundColor: '#3a517c', 
+            backgroundColor: '#3d4b66', 
             boxShadow: 5, 
             transform: isVisible ? 'translateY(0)' : 'translateY(-100%)', 
             transition: 'transform 0.3s ease-out',
@@ -116,13 +116,18 @@ export function TopBar() {
                         onChange={handleSelectChange}
                         displayEmpty
                         sx={dropDownStyle}
-                        renderValue={() => 'About'}
+                        renderValue={() => 'Research'}
                         open={openAboutMenu}
                         onOpen={() => setOpenAboutMenu(true)}
                         onClose={() => setOpenAboutMenu(false)}
                     >
-                        <MenuItem value="about">About</MenuItem>
-                        <MenuItem value="research">Research</MenuItem>
+                        <MenuItem value="research">How To Build a Racecar</MenuItem>
+                        <MenuItem value="research">Reverse Engineering w/ Frida</MenuItem>
+                        <MenuItem value="research">Computer Vision for Racecars</MenuItem>
+                        <MenuItem value="research">AI Computer Vision for Drones</MenuItem>
+                        <MenuItem value="research">Zero Knowledge Architecture</MenuItem>
+                        <MenuItem value="research">Automated Logistics</MenuItem>
+                        <MenuItem value="research">How the Enigma Machine Works</MenuItem>
                     </Select>
 
                     <Select
@@ -135,7 +140,7 @@ export function TopBar() {
                         onOpen={() => setOpenProjectMenu(true)}
                         onClose={() => setOpenProjectMenu(false)}
                     >
-                        <MenuItem value="chess">Chess</MenuItem>
+                        <MenuItem value="chess/board">Chess</MenuItem>
                         <MenuItem value="password/login">Password Manager</MenuItem>
                     </Select>
                 </Box>
