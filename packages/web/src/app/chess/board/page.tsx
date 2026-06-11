@@ -7,6 +7,7 @@ import type { PieceDropHandlerArgs } from 'react-chessboard';
 import { Box, TextField } from '@mui/material';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { IconButton } from '@mui/material';
+import init, { make_move } from './pkg';
 
 export default function ChessPage() {
     const chessGameRef = useRef(new Chess());
@@ -27,7 +28,7 @@ export default function ChessPage() {
             setChessPosition(chessGame.fen());
 
             if (engineReady) {
-                const bestMove = make_move(chessGame.fen(), 3);
+                const bestMove = make_move(chessGame.fen(), 5);
                 if (bestMove) {
                     console.log(bestMove);
                     chessGame.load(bestMove);
