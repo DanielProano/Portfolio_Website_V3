@@ -137,13 +137,8 @@ export default function Home() {
 
           <Typography variant="body2" sx={{ mb: 6, color: '#ccc', lineHeight: 1.6 }}>
             Embedded Security Engineer working on Autonomous Systems. 
-          </Typography>
-
-          <Typography variant="body2" sx={{ mb: 2, color: '#ccc', lineHeight: 1.6 }}>
-            I specialize in designing performant systems specifically for the STM32
-            family with an emphasis on reliability and security. I
-            especially love working on rocket ships, drones, and 
-            race cars!
+            I specialize in designing performant & secure systems for 
+            everything from race cars to drones to rocket ships!
           </Typography>
         </Box>
 
