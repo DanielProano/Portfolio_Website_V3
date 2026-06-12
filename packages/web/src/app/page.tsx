@@ -50,8 +50,7 @@ const highlights = [
   {
     title: "Vulnerability Research on Baby Monitor",
     description: "Software lead conducting vulnerability research using Android phone emulation and reverse engineering techniques to do binary exploitation, network analysis, and static analysis",
-    image: "/projects/slideshow/research.jpeg",
-    link: ""
+    image: "/projects/slideshow/research.jpeg"
   },
   {
     title: "Portfolio Website",
@@ -138,8 +137,9 @@ export default function Home() {
 
           <Typography variant="body2" sx={{ mb: 6, color: '#ccc', lineHeight: 1.6 }}>
             Embedded Security Engineer working on Autonomous Systems. 
-            I specialize in designing cutting edge embedded systems
-            that also emphasize security and reliability. I build 
+
+            I specialize in designing cutting edge systems for the STM32
+            family that put an emphasis on reliability and security. I build 
             especially love working on rocket ships, drones, and 
             race cars!
           </Typography>
