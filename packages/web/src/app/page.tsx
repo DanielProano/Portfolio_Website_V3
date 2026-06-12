@@ -55,7 +55,7 @@ const highlights = [
   },
   {
     title: "Portfolio Website",
-    description: "I've made 3 versions of my Portfolio website, getting experience in AWS, GCR, and Vercel.",
+    description: "I've made 3 versions of my Portfolio website, getting experience in AWS, GCR, Vercel, Next.js, React, Javascript, load balancers and more!",
     image: "",
     link: "https://github.com/DanielProano/Portfolio_Website_V3"
   },
@@ -63,13 +63,13 @@ const highlights = [
     title: "A Modern Zero-Knowledge Password Manager",
     description: "A traditional password manager can leak your passwords, but my implementation of the Zero-Knowledge Architecture is designed to address that!",
     image: "/projects/highlights/PasswordManagerPhoto.png",
-    link: "https://dannyproano.com/pass/"
+    link: "https://dannyproano.com/password/login"
   },
   {
     title: "Chess Engine 3.0 w/ Rust + React",
     description: "A hand-made Rust chess engine implementing advanced alpha-beta pruning, complete move generation, and a whole frontend with fen integration!",
     image: "/projects/highlights/chess.png",
-    link: "https://github.com/DanielProano/ChessBot_ML"
+    link: "https://github.com/DanielProano/ChessBot"
   },
   {
     title: "Object Detection with Drones",
@@ -137,25 +137,12 @@ export default function Home() {
           </Typography>
 
           <Typography variant="body2" sx={{ mb: 6, color: '#ccc', lineHeight: 1.6 }}>
-            Embedded Security Engineer working on Autonomous Systems. I design and build robots, autonomous vehicles, and secure hardware applications.
+            Embedded Security Engineer working on Autonomous Systems. 
+            I specialize in designing cutting edge embedded systems
+            that also emphasize security and reliability. I build 
+            especially love working on rocket ships, drones, and 
+            race cars!
           </Typography>
-
-          <Stack direction="column" spacing={1}>
-            <Button 
-              variant="contained" 
-              sx={{ backgroundColor: '#fff', color: '#000', fontWeight: 'bold' }} 
-              href="/about"
-            >
-              About
-            </Button>
-            <Button 
-              variant="contained" 
-              sx={{ backgroundColor: '#fff', color: '#000', fontWeight: 'bold' }} 
-              href="/blog"
-            >
-              Blog
-            </Button>
-          </Stack>
         </Box>
 
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
