@@ -111,7 +111,8 @@ export default function Home() {
             backgroundColor: '#000000',
             color: '#ffffff',
             padding: 4,
-            borderRadius: 8
+            borderRadius: 8,
+            alignSelf: 'flex-start'
           }}
         >
           <Box
