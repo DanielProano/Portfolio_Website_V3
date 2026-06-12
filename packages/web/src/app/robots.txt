@@ -8,8 +8,7 @@ export default function robots(): MetadataRoute.robots {
                 allow: '/',
                 disallow: [
                     '/api/', 
-                    '/vault/',
-                    '/login'
+                    '/vault/'
                 ],
             },
         ],
