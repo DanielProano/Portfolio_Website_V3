@@ -6,7 +6,11 @@ export default function robots(): MetadataRoute.robots {
             {
                 userAgent: '*',
                 allow: '/',
-                disallow: '/api/',
+                disallow: [
+                    '/api/', 
+                    '/vault/',
+                    '/login'
+                ],
             },
         ],
         sitemap: 'https://dannyproano.com/sitemap.xml',
