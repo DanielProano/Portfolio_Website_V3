@@ -1,0 +1,15 @@
+{
+  "name": "@dproano/chessbot",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "chessbot_bg.wasm",
+    "chessbot.js",
+    "chessbot.d.ts"
+  ],
+  "main": "chessbot.js",
+  "types": "chessbot.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

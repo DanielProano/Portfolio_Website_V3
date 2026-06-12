@@ -7,7 +7,7 @@ import type { PieceDropHandlerArgs } from 'react-chessboard';
 import { Box, TextField } from '@mui/material';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { IconButton } from '@mui/material';
-import init, { make_move } from './pkg';
+import init, { make_move } from '../engine/pkg';
 
 export default function ChessPage() {
     const chessGameRef = useRef(new Chess());
