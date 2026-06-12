@@ -111,7 +111,7 @@ export function TopBar() {
                         Home
                     </Button>
                     
-                    <Select 
+                    {/* <Select 
                         value={selectedOption}
                         onChange={handleSelectChange}
                         displayEmpty
@@ -128,7 +128,7 @@ export function TopBar() {
                         <MenuItem value="research">Zero Knowledge Architecture</MenuItem>
                         <MenuItem value="research">Automated Logistics</MenuItem>
                         <MenuItem value="research">How the Enigma Machine Works</MenuItem>
-                    </Select>
+                    </Select> */}
 
                     <Select
                         value={selectedOption}
