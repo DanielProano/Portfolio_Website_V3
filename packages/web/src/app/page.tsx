@@ -68,7 +68,7 @@ const highlights = [
   {
     title: "Chess Engine 3.0 w/ Rust + React",
     description: "A hand-made Rust chess engine implementing advanced alpha-beta pruning, complete move generation, and a whole frontend with fen integration!",
-    image: "",
+    image: "/projects/highlights/chess.png",
     link: "https://github.com/DanielProano/ChessBot_ML"
   },
   {
