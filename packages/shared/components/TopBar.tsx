@@ -91,7 +91,7 @@ export function TopBar() {
                     variant="h6" 
                     sx={{ 
                         fontWeight: 'bold', 
-                        fontSize: { xs: '1.1rem', sm: '1.5rem', md: '2rem' },
+                        fontSize: { xs: '0.6rem', sm: '1.5rem', md: '2rem' },
                         letterSpacing: 1,
                     }}
                 >
