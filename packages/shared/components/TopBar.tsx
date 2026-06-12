@@ -9,7 +9,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 const navButtonStyle = {
     color: '#f0e8e8',
-    fontSize: { xs: '0.75rem', sm: '1rem', md: '1.3rem' },
+    fontSize: { xs: '0.6rem', sm: '1rem', md: '1.3rem' },
     textTransform: 'none',
     '&:hover': { 
         color: '#64b5f6',
@@ -19,7 +19,7 @@ const navButtonStyle = {
 
 const dropDownStyle = {
     color: '#f0e8e8',
-    fontSize: { xs: '0.75rem', sm: '1rem', md: '1.3rem' },
+    fontSize: { xs: '0.6rem', sm: '1rem', md: '1.3rem' },
     textTransform: 'none',
     '&:hover': { 
         color: '#64b5f6',
@@ -46,7 +46,7 @@ const dropDownStyle = {
 
 const iconStyle = {
     color: '#f0e8e8',
-    fontSize: '1.5rem',
+    fontSize: { xs: '0.8rem', sm: '1rem', md: '1.3rem' },
     '&:hover': {
         color: '#64b5f6',
         transition: 'color 0.3s'
@@ -91,7 +91,7 @@ export function TopBar() {
                     variant="h6" 
                     sx={{ 
                         fontWeight: 'bold', 
-                        fontSize: { xs: '0.6rem', sm: '1.5rem', md: '2rem' },
+                        fontSize: { xs: '0.6rem', sm: '1.2rem', md: '2rem' },
                         letterSpacing: 1,
                     }}
                 >

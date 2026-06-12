@@ -27,7 +27,7 @@ export default function ChessPage() {
         if (gameStarted && orientation === 'black' && engineReady) {
             // Ensure it's white's turn before making the move
             if (chessGame.turn() === 'w') {
-                const bestMove = make_move(chessGame.fen(), 5);
+                const bestMove = make_move(chessGame.fen(), 6);
                 if (bestMove) {
                     chessGame.load(bestMove);
                     setChessPosition(bestMove);
@@ -140,7 +140,7 @@ export default function ChessPage() {
                 sx={{
                     mt: 2,
                     input: { color: '#fff', fontSize: '0.8rem' },
-                    width: '415px',
+                    width: { xs: '200px', md: '415px' },
                     backgroundColor: '#3c475c',
                     borderRadius: 4,
                     '& .MuiOutlinedInput-root': {

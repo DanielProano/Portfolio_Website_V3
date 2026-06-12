@@ -98,7 +98,7 @@ export default function Home() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % projects.length);
-    }, 2500);
+    }, 2000);
     return () => clearInterval(interval);
   }, [currentIndex]);
 
@@ -139,7 +139,7 @@ export default function Home() {
             Embedded Security Engineer working on Autonomous Systems. 
           </Typography>
 
-          <Typography variant="body2" sx={{ mb: 4, color: '#ccc', lineHeight: 1.6 }}>
+          <Typography variant="body2" sx={{ mb: 2, color: '#ccc', lineHeight: 1.6 }}>
             I specialize in designing performant systems specifically for the STM32
             family with an emphasis on reliability and security. I
             especially love working on rocket ships, drones, and 
