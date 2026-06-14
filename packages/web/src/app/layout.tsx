@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { TopBar } from '@shared/components';
+import { Analytics } from "@vercel/analytics/next";
 import './globals.css';
 
 export const metadata = {
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <TopBar />
         {children}
       </body>
+      <Analytics />
     </html>
   );
 }
