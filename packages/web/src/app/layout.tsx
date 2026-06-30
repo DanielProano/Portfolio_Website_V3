@@ -2,6 +2,8 @@ import { ReactNode } from 'react';
 import { TopBar } from '@shared/components';
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Providers } from '@/components/Providers';
+import { AuthButton } from '@/components/AuthButton';
 import './globals.css';
 
 export const metadata = {
@@ -18,8 +20,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <TopBar />
-        {children}
+        <Providers>
+          <TopBar authButton={<AuthButton />} />
+          {children}
+        </Providers>
       </body>
       <Analytics />
       <SpeedInsights />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, Select, MenuItem, IconButton } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import GitHubIcon from '@mui/icons-material/GitHub';
@@ -53,7 +53,7 @@ const iconStyle = {
     }
 };
 
-export function TopBar() {
+export function TopBar({ authButton }: { authButton?: ReactNode }) {
     const router = useRouter();
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
@@ -142,6 +142,7 @@ export function TopBar() {
                     >
                         <MenuItem value="chess/board">Chess</MenuItem>
                         <MenuItem value="password/login">Password Manager</MenuItem>
+                        <MenuItem value="calendar">Calendar</MenuItem>
                     </Select>
                 </Box>
 
@@ -162,12 +163,11 @@ export function TopBar() {
                     >
                         <LinkedInIcon />
                     </IconButton>
-                    <IconButton
-                        href="/login" 
-                        sx={iconStyle}
-                    >
-                        <AccountCircleIcon />
-                    </IconButton>
+                    {authButton ?? (
+                        <IconButton href="/auth/login" sx={iconStyle}>
+                            <AccountCircleIcon />
+                        </IconButton>
+                    )}
                 </Box>
             </Toolbar>
         </AppBar>

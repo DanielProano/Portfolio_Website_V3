@@ -44,7 +44,13 @@ export default function vaultRoutes(pool: Pool) {
             );
 
             if (result.rows.length === 0) {
-                return res.status(404).json({ error: 'User does not exist' });
+                // Return a deterministic fake salt so response is identical to a real user —
+                // prevents username enumeration via 404/200 differential.
+                const fakeSalt = crypto
+                    .createHmac('sha256', process.env.JWT_SECRET as string)
+                    .update(user)
+                    .digest('base64');
+                return res.status(200).json({ master_salt: fakeSalt });
             }
 
             res.status(200).json({ master_salt: result.rows[0].master_salt });
