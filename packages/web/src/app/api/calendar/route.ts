@@ -26,9 +26,20 @@ export async function GET(request: NextRequest) {
             [start, end]
         );
 
-        return NextResponse.json({ events: result.rows });
+        let tasks: unknown[] = [];
+        try {
+            const taskResult = await pool.query(
+                `SELECT id, title, status, priority, due_date, due_time FROM tasks WHERE due_date >= $1::date AND due_date < $2::date ORDER BY due_date, due_time NULLS LAST`,
+                [start, end]
+            );
+            tasks = taskResult.rows;
+        } catch {
+            // tasks table may not exist yet
+        }
+
+        return NextResponse.json({ events: result.rows, tasks });
     } catch {
-        return NextResponse.json({ events: [] });
+        return NextResponse.json({ events: [], tasks: [] });
     }
 }
 
