@@ -44,12 +44,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const pool = getPool();
-    const result = await pool.query(
-        `INSERT INTO calendar_events (title, description, start_time, end_time, color)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [title, description ?? '', start_time, end_time, color ?? '#64b5f6']
-    );
-
-    return NextResponse.json({ event: result.rows[0] }, { status: 201 });
+    try {
+        const pool = getPool();
+        const result = await pool.query(
+            `INSERT INTO calendar_events (title, description, start_time, end_time, color)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [title, description ?? '', start_time, end_time, color ?? '#64b5f6']
+        );
+        return NextResponse.json({ event: result.rows[0] }, { status: 201 });
+    } catch (err) {
+        console.error('[POST /api/calendar]', err);
+        return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
 }

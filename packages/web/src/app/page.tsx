@@ -28,7 +28,7 @@ const highlights = [
     link: "https://github.com/EVC-Purdue/AutonomousKart"
   },
   {
-    title: "Firefly: A Real Time OS for the STM32",
+    title: "Firefly: A Real Time OS for the STM32F4",
     description: "Coming Soon"
   },
   {
@@ -55,7 +55,7 @@ const highlights = [
   {
     title: "Portfolio Website",
     description: "I've made 3 versions of my Portfolio website, getting experience in AWS, GCR, Vercel, Next.js, React, Javascript, load balancers and more!",
-    image: "",
+    image: "/projects/highlights/website.png",
     link: "https://github.com/DanielProano/Portfolio_Website_V3"
   },
   {

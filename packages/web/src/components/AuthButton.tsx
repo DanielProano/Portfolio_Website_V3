@@ -10,17 +10,15 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LoginIcon from '@mui/icons-material/Login';
 
-type AuthUser = { name?: string; email?: string; picture?: string };
-
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+type AuthUser = { name?: string; email?: string; picture?: string; isAdmin?: boolean };
 
 export function AuthButton() {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const isAdmin = user?.email === ADMIN_EMAIL;
+    const isAdmin = user?.isAdmin === true;
 
     useEffect(() => {
-        fetch('/auth/profile')
+        fetch('/api/me')
             .then(res => res.ok ? res.json() : null)
             .then(data => setUser(data))
             .catch(() => {});
