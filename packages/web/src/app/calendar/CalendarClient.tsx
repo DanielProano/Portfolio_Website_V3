@@ -120,9 +120,14 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const [editingId, setEditingId] = useState<number | null>(null);
 
     const fetchEvents = useCallback(async (year: number, month: number) => {
-        const res = await fetch(`/api/calendar?year=${year}&month=${month + 1}`);
-        const data = await res.json();
-        setEvents(data.events ?? []);
+        try {
+            const res = await fetch(`/api/calendar?year=${year}&month=${month + 1}`);
+            if (!res.ok) { setEvents([]); return; }
+            const data = await res.json();
+            setEvents(data.events ?? []);
+        } catch {
+            setEvents([]);
+        }
     }, []);
 
     useEffect(() => {

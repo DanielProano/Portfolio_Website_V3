@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useState, useEffect } from 'react';
 import {
     IconButton, Menu, MenuItem, Avatar,
     Divider, Typography, Box, Chip
@@ -11,12 +10,21 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LoginIcon from '@mui/icons-material/Login';
 
+type AuthUser = { name?: string; email?: string; picture?: string };
+
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
 export function AuthButton() {
-    const { user } = useUser();
+    const [user, setUser] = useState<AuthUser | null>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const isAdmin = user?.email === ADMIN_EMAIL;
+
+    useEffect(() => {
+        fetch('/auth/profile')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => setUser(data))
+            .catch(() => {});
+    }, []);
 
     const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
     const handleClose = () => setAnchorEl(null);

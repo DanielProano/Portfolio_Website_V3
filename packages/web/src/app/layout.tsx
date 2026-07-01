@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import { TopBar } from '@shared/components';
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Providers } from '@/components/Providers';
 import { AuthButton } from '@/components/AuthButton';
 import './globals.css';
 
@@ -20,10 +20,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <Providers>
+        <AppRouterCacheProvider>
           <TopBar authButton={<AuthButton />} />
           {children}
-        </Providers>
+        </AppRouterCacheProvider>
       </body>
       <Analytics />
       <SpeedInsights />

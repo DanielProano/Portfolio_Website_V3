@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth0 } from '@/lib/auth0';
+import { getSessionSafe } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 async function requireAdmin() {
-    const session = await auth0.getSession();
+    const session = await getSessionSafe();
     return session?.user?.email === ADMIN_EMAIL;
 }
 

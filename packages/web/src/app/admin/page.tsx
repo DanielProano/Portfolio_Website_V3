@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
-import { auth0 } from '@/lib/auth0';
+import { getSessionSafe } from '@/lib/auth0';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 export default async function AdminPage() {
-    const session = await auth0.getSession();
+    const session = await getSessionSafe();
 
     if (!session) {
         redirect('/auth/login?returnTo=/admin');
