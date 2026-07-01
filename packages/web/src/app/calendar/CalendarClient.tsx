@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Box, Typography, IconButton, Button, TextField, Tooltip,
 } from '@mui/material';
@@ -10,6 +11,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import AddTaskIcon from '@mui/icons-material/AddTask';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +24,21 @@ type CalendarEvent = {
     start_time: string;
     end_time: string;
     color: string;
+};
+
+type CalendarTask = {
+    id: number;
+    title: string;
+    status: 'todo' | 'in_progress' | 'done';
+    priority: 'low' | 'medium' | 'high';
+    due_date: string;
+    due_time: string | null;
+};
+
+const TASK_PRIORITY_COLORS: Record<string, string> = {
+    low: '#81c784',
+    medium: '#ffb74d',
+    high: '#e57373',
 };
 
 type FormData = {
@@ -110,16 +129,19 @@ function emptyForm(date: Date, startH = 9, startM = 0): FormData {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
+    const router = useRouter();
     const today = new Date();
     const [viewMonth, setViewMonth] = useState(today);
     const [selectedDay, setSelectedDay] = useState(today);
     const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [tasks, setTasks] = useState<CalendarTask[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [formData, setFormData] = useState<FormData>(emptyForm(today));
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formPos, setFormPos] = useState({ x: 200, y: 150 });
     const [eventDrag, setEventDrag] = useState<EventDrag | null>(null);
+    const [taskCreatedId, setTaskCreatedId] = useState<number | null>(null);
 
     const timelineScrollRef = useRef<HTMLDivElement>(null);
     const formDragRef = useRef<{ startPX: number; startPY: number; origX: number; origY: number } | null>(null);
@@ -132,6 +154,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             if (!res.ok) { setEvents([]); return; }
             const data = await res.json();
             setEvents(data.events ?? []);
+            setTasks(data.tasks ?? []);
         } catch {
             setEvents([]);
         }
@@ -235,6 +258,27 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
 
         setFormOpen(false);
         setSelectedEvent(null);
+        await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+    };
+
+    const handleCreateTaskFromEvent = async (event: CalendarEvent) => {
+        const start = new Date(event.start_time);
+        const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+        const timeStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+        await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: event.title,
+                description: event.description ?? '',
+                status: 'todo',
+                priority: 'medium',
+                due_date: dateStr,
+                due_time: timeStr,
+            }),
+        });
+        setTaskCreatedId(event.id);
+        setTimeout(() => setTaskCreatedId(null), 2000);
         await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
     };
 
@@ -374,6 +418,10 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         const isToday = isSameDay(cellDate, today);
                         const isSelected = isSameDay(cellDate, selectedDay);
                         const hasEvents = events.some(e => isSameDay(new Date(e.start_time), cellDate));
+                        const hasTasks = tasks.some(t => {
+                            const td = new Date(`${t.due_date}T12:00:00Z`);
+                            return isSameDay(td, cellDate);
+                        });
                         return (
                             <Box
                                 key={day}
@@ -401,13 +449,15 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 }}>
                                     {day}
                                 </Typography>
-                                {hasEvents && (
-                                    <Box sx={{
-                                        width: 4, height: 4,
-                                        borderRadius: '50%',
-                                        backgroundColor: isSelected ? '#1e2535' : '#64b5f6',
-                                        mt: '2px',
-                                    }} />
+                                {(hasEvents || hasTasks) && (
+                                    <Box sx={{ display: 'flex', gap: '3px', mt: '2px' }}>
+                                        {hasEvents && (
+                                            <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: isSelected ? '#1e2535' : '#64b5f6' }} />
+                                        )}
+                                        {hasTasks && (
+                                            <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: isSelected ? '#1e2535' : '#ffb74d' }} />
+                                        )}
+                                    </Box>
                                 )}
                             </Box>
                         );
@@ -521,6 +571,54 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                             );
                         })}
 
+                        {/* Task blocks (timed tasks for selected day) */}
+                        {tasks
+                            .filter(t => {
+                                if (!t.due_time) return false;
+                                const td = new Date(`${t.due_date}T12:00:00Z`);
+                                return isSameDay(td, selectedDay);
+                            })
+                            .map(task => {
+                                const [h, m] = task.due_time!.split(':').map(Number);
+                                const topPx = (h + m / 60 - DAY_START) * HOUR_HEIGHT;
+                                const color = TASK_PRIORITY_COLORS[task.priority];
+                                const isDone = task.status === 'done';
+                                return (
+                                    <Box
+                                        key={`task-${task.id}`}
+                                        onClick={() => router.push('/tasks')}
+                                        sx={{
+                                            position: 'absolute',
+                                            top: `${topPx}px`,
+                                            height: '40px',
+                                            left: `${LABEL_WIDTH + 8}px`,
+                                            right: '8px',
+                                            backgroundColor: `${color}33`,
+                                            borderLeft: `3px solid ${color}`,
+                                            borderRadius: '0 6px 6px 0',
+                                            padding: '3px 8px',
+                                            overflow: 'hidden',
+                                            boxSizing: 'border-box',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 0.5,
+                                            zIndex: 1,
+                                            '&:hover': { backgroundColor: `${color}55` },
+                                        }}
+                                    >
+                                        {isDone
+                                            ? <CheckBoxIcon sx={{ fontSize: '0.85rem', color, flexShrink: 0 }} />
+                                            : <CheckBoxOutlineBlankIcon sx={{ fontSize: '0.85rem', color, flexShrink: 0 }} />
+                                        }
+                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color, lineHeight: 1.2, textDecoration: isDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {task.title}
+                                        </Typography>
+                                    </Box>
+                                );
+                            })
+                        }
+
                     </Box>
                 </Box>
 
@@ -544,6 +642,11 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                                     {isAdmin && (
                                         <>
+                                            <Tooltip title={taskCreatedId === selectedEvent.id ? 'Task created!' : 'Create Task'}>
+                                                <IconButton size="small" onClick={() => handleCreateTaskFromEvent(selectedEvent)} sx={{ color: taskCreatedId === selectedEvent.id ? '#81c784' : '#ffb74d' }}>
+                                                    <AddTaskIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
                                             <Tooltip title="Edit">
                                                 <IconButton size="small" onClick={() => openEdit(selectedEvent)} sx={{ color: '#64b5f6' }}>
                                                     <EditIcon fontSize="small" />
@@ -628,7 +731,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 {editingId !== null ? 'Edit Event' : 'New Event'}
                             </Typography>
                         </Box>
-                        <IconButton size="small" onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
+                        <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
                             <CloseIcon fontSize="small" />
                         </IconButton>
                     </Box>

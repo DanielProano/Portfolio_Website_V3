@@ -27,4 +27,19 @@ pool.query(`
 `).then(() => console.log('Calendar table access successful'))
   .catch(err => console.error('Calendar table error:', err));
 
+pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        status TEXT DEFAULT 'todo',
+        priority TEXT DEFAULT 'medium',
+        due_date DATE,
+        due_time TIME,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+`).then(() => console.log('Tasks table access successful'))
+  .catch(err => console.error('Tasks table error:', err));
+
 export default pool;
