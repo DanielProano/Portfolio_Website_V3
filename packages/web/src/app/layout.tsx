@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import { TopBar } from '@shared/components';
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { AuthButton } from '@/components/AuthButton';
 import './globals.css';
 
 export const metadata = {
@@ -18,8 +20,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <TopBar />
-        {children}
+        <AppRouterCacheProvider>
+          <TopBar authButton={<AuthButton />} />
+          {children}
+        </AppRouterCacheProvider>
       </body>
       <Analytics />
       <SpeedInsights />
