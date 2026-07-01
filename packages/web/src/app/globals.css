@@ -2,3 +2,7 @@ body {
     background-color: #252d3d;
     margin: 0.5rem;
 }
+
+nextjs-portal {
+    display: none;
+}

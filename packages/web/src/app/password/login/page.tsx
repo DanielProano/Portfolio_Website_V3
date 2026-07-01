@@ -84,10 +84,10 @@ export default function LoginPage() {
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             
             <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h1" sx={{ mt: 10, mb: 2, fontSize: '5rem', color: '#ffffff'}}>
+                <Typography variant="h1" sx={{ mt: 10, mb: 2, fontSize: { xs: '2.5rem', sm: '3.5rem', md: '5rem' }, color: '#ffffff'}}>
                     A Password Manager
                 </Typography>
-                <Typography variant="h2" sx={{ fontSize: '2rem', color: '#ffffff' }}>
+                <Typography variant="h2" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem', md: '2rem' }, color: '#ffffff' }}>
                     Keeping your passwords secure
                 </Typography>
             </Box>
@@ -96,7 +96,7 @@ export default function LoginPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                maxWidth: '50%',
+                maxWidth: { xs: '90%', sm: '70%', md: '50%' },
                 mt: 5,
                 border: '2px solid #3c4e77',
                 backgroundColor: '#3c4353',

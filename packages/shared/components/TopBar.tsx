@@ -146,6 +146,24 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                     </Select>
                 </Box>
 
+                <Button
+                    component="a"
+                    href="/resume.pdf"
+                    download
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                        color: '#90b4e8',
+                        borderColor: '#3d5280',
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: { xs: '0.6rem', sm: '0.8rem', md: '0.95rem' },
+                        '&:hover': { borderColor: '#90b4e8', backgroundColor: '#2d3f5e' },
+                    }}
+                >
+                    Resume
+                </Button>
+
                 <Box sx={{ display: 'flex', gap: 2, ml: 3}}>
                     <IconButton 
                         href="https://github.com/DanielProano" 
