@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    Box, Typography, IconButton, Dialog, DialogTitle, DialogContent,
-    DialogActions, Button, TextField, Tooltip,
+    Box, Typography, IconButton, Button, TextField, Tooltip,
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +29,13 @@ type FormData = {
     endTime: string;
     description: string;
     color: string;
+};
+
+type EventDrag = {
+    event: CalendarEvent;
+    pointerStartY: number;
+    isDragging: boolean;
+    deltaY: number;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -76,32 +82,26 @@ function getMonthCells(year: number, month: number): (number | null)[] {
     ];
 }
 
-function getEventStyle(event: CalendarEvent): React.CSSProperties {
+function getEventTop(event: CalendarEvent): number {
+    const start = new Date(event.start_time);
+    return (start.getHours() + start.getMinutes() / 60 - DAY_START) * HOUR_HEIGHT;
+}
+
+function getEventHeight(event: CalendarEvent): number {
     const start = new Date(event.start_time);
     const end = new Date(event.end_time);
     const startDec = start.getHours() + start.getMinutes() / 60;
     const endDec = end.getHours() + end.getMinutes() / 60;
-    return {
-        position: 'absolute',
-        top: `${(startDec - DAY_START) * HOUR_HEIGHT}px`,
-        height: `${Math.max((endDec - startDec) * HOUR_HEIGHT - 2, 22)}px`,
-        left: `${LABEL_WIDTH + 8}px`,
-        right: '8px',
-        backgroundColor: event.color,
-        borderRadius: '6px',
-        padding: '3px 8px',
-        cursor: 'pointer',
-        overflow: 'hidden',
-        boxSizing: 'border-box',
-    };
+    return Math.max((endDec - startDec) * HOUR_HEIGHT - 2, 22);
 }
 
-function emptyForm(date: Date): FormData {
+function emptyForm(date: Date, startH = 9, startM = 0): FormData {
+    const endH = Math.min(startH + 1, DAY_END - 1);
     return {
         title: '',
         date: formatDateInput(date),
-        startTime: '09:00',
-        endTime: '10:00',
+        startTime: `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`,
+        endTime: `${String(endH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`,
         description: '',
         color: EVENT_COLORS[0],
     };
@@ -118,6 +118,13 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const [formOpen, setFormOpen] = useState(false);
     const [formData, setFormData] = useState<FormData>(emptyForm(today));
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [formPos, setFormPos] = useState({ x: 200, y: 150 });
+    const [eventDrag, setEventDrag] = useState<EventDrag | null>(null);
+
+    const timelineScrollRef = useRef<HTMLDivElement>(null);
+    const formDragRef = useRef<{ startPX: number; startPY: number; origX: number; origY: number } | null>(null);
+    // Prevents timeline click from firing a create-form open right after a drag ends
+    const dragJustEndedRef = useRef(false);
 
     const fetchEvents = useCallback(async (year: number, month: number) => {
         try {
@@ -134,9 +141,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
     }, [viewMonth, fetchEvents]);
 
-    const dayEvents = events.filter(e =>
-        isSameDay(new Date(e.start_time), selectedDay)
-    );
+    const dayEvents = events.filter(e => isSameDay(new Date(e.start_time), selectedDay));
 
     // ── Month navigation ──
 
@@ -148,13 +153,32 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         setSelectedEvent(null);
     };
 
-    // ── Admin CRUD ──
+    // ── Timeline click → open create form at click position ──
 
-    const openCreate = () => {
+    const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!isAdmin || dragJustEndedRef.current || !timelineScrollRef.current) return;
+
+        const rect = timelineScrollRef.current.getBoundingClientRect();
+        const relY = e.clientY - rect.top + timelineScrollRef.current.scrollTop;
+
+        // Snap to nearest 15-minute slot
+        const rawMinutes = (relY / HOUR_HEIGHT) * 60;
+        const snappedMinutes = Math.round(rawMinutes / 15) * 15;
+        const hour = Math.floor(snappedMinutes / 60) + DAY_START;
+        const minute = snappedMinutes % 60;
+        const clampedHour = Math.max(DAY_START, Math.min(DAY_END - 1, hour));
+
+        // Keep form within viewport
+        const formX = Math.min(e.clientX + 16, window.innerWidth - 404);
+        const formY = Math.min(e.clientY - 32, window.innerHeight - 520);
+        setFormPos({ x: Math.max(8, formX), y: Math.max(8, formY) });
+
         setEditingId(null);
-        setFormData(emptyForm(selectedDay));
+        setFormData(emptyForm(selectedDay, clampedHour, minute));
         setFormOpen(true);
     };
+
+    // ── Admin CRUD ──
 
     const openEdit = (event: CalendarEvent) => {
         const start = new Date(event.start_time);
@@ -168,6 +192,14 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             description: event.description ?? '',
             color: event.color,
         });
+        // Position form near the timeline, vertically near the event
+        if (timelineScrollRef.current) {
+            const rect = timelineScrollRef.current.getBoundingClientRect();
+            const eventTopViewport = rect.top + getEventTop(event) - timelineScrollRef.current.scrollTop;
+            const formX = Math.min(rect.right + 12, window.innerWidth - 404);
+            const formY = Math.min(Math.max(8, eventTopViewport - 32), window.innerHeight - 520);
+            setFormPos({ x: Math.max(8, formX), y: formY });
+        }
         setFormOpen(true);
     };
 
@@ -212,7 +244,86 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
     };
 
-    // ── Cells ──
+    // ── Form drag ──
+
+    const handleFormDragStart = (e: React.PointerEvent) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        formDragRef.current = {
+            startPX: e.clientX,
+            startPY: e.clientY,
+            origX: formPos.x,
+            origY: formPos.y,
+        };
+    };
+
+    const handleFormDragMove = (e: React.PointerEvent) => {
+        if (!formDragRef.current) return;
+        setFormPos({
+            x: Math.max(0, Math.min(window.innerWidth - 380, formDragRef.current.origX + e.clientX - formDragRef.current.startPX)),
+            y: Math.max(0, Math.min(window.innerHeight - 100, formDragRef.current.origY + e.clientY - formDragRef.current.startPY)),
+        });
+    };
+
+    const handleFormDragEnd = () => { formDragRef.current = null; };
+
+    // ── Event drag to reschedule ──
+
+    const handleEventPointerDown = (e: React.PointerEvent, event: CalendarEvent) => {
+        if (!isAdmin) return;
+        e.stopPropagation();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setEventDrag({ event, pointerStartY: e.clientY, isDragging: false, deltaY: 0 });
+    };
+
+    const handleEventPointerMove = (e: React.PointerEvent) => {
+        if (!eventDrag) return;
+        const deltaY = e.clientY - eventDrag.pointerStartY;
+        setEventDrag(prev => prev ? { ...prev, deltaY, isDragging: prev.isDragging || Math.abs(deltaY) > 6 } : null);
+    };
+
+    const handleEventPointerUp = async (e: React.PointerEvent) => {
+        if (!eventDrag) return;
+
+        if (!eventDrag.isDragging) {
+            // It was a tap/click, not a drag — just select the event
+            setSelectedEvent(eventDrag.event);
+            setEventDrag(null);
+            return;
+        }
+
+        // Mark that a drag just finished so the timeline's onClick doesn't open the create form
+        dragJustEndedRef.current = true;
+        setTimeout(() => { dragJustEndedRef.current = false; }, 100);
+
+        const deltaMinutes = Math.round((eventDrag.deltaY / HOUR_HEIGHT) * 60 / 15) * 15;
+        const origStart = new Date(eventDrag.event.start_time);
+        const origEnd = new Date(eventDrag.event.end_time);
+        const duration = origEnd.getTime() - origStart.getTime();
+        const newStart = new Date(origStart.getTime() + deltaMinutes * 60 * 1000);
+        const newEnd = new Date(newStart.getTime() + duration);
+
+        const dayMin = new Date(origStart); dayMin.setHours(DAY_START, 0, 0, 0);
+        const dayMax = new Date(origStart); dayMax.setHours(DAY_END, 0, 0, 0);
+
+        setEventDrag(null);
+
+        if (newStart >= dayMin && newEnd <= dayMax) {
+            await fetch(`/api/calendar/${eventDrag.event.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: eventDrag.event.title,
+                    description: eventDrag.event.description,
+                    start_time: newStart.toISOString(),
+                    end_time: newEnd.toISOString(),
+                    color: eventDrag.event.color,
+                }),
+            });
+            await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+        }
+    };
+
+    // ── Cells / hours ──
 
     const cells = getMonthCells(viewMonth.getFullYear(), viewMonth.getMonth());
     const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
@@ -236,7 +347,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                 flexDirection: 'column',
                 p: 2,
             }}>
-                {/* Month header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                     <IconButton onClick={prevMonth} sx={{ color: '#f0e8e8' }}>
                         <ChevronLeftIcon />
@@ -249,7 +359,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                     </IconButton>
                 </Box>
 
-                {/* Day-of-week labels */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 1 }}>
                     {DAYS.map(d => (
                         <Typography key={d} align="center" sx={{ fontSize: '0.7rem', color: '#aaa', fontWeight: 600 }}>
@@ -258,7 +367,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                     ))}
                 </Box>
 
-                {/* Day cells */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
                     {cells.map((day, i) => {
                         if (!day) return <Box key={`empty-${i}`} />;
@@ -266,7 +374,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         const isToday = isSameDay(cellDate, today);
                         const isSelected = isSameDay(cellDate, selectedDay);
                         const hasEvents = events.some(e => isSameDay(new Date(e.start_time), cellDate));
-
                         return (
                             <Box
                                 key={day}
@@ -320,16 +427,23 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         {selectedDay.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
                     </Typography>
                     {isAdmin && (
-                        <Tooltip title="Add event">
-                            <IconButton onClick={openCreate} sx={{ color: '#64b5f6' }}>
-                                <AddIcon />
-                            </IconButton>
-                        </Tooltip>
+                        <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                            Click to add · Drag to reschedule
+                        </Typography>
                     )}
                 </Box>
 
                 {/* Timeline scroll area */}
-                <Box sx={{ flex: '0 0 58%', overflowY: 'auto', position: 'relative' }}>
+                <Box
+                    ref={timelineScrollRef}
+                    onClick={handleTimelineClick}
+                    sx={{
+                        flex: '0 0 58%',
+                        overflowY: 'auto',
+                        position: 'relative',
+                        cursor: isAdmin ? 'crosshair' : 'default',
+                    }}
+                >
                     <Box sx={{ position: 'relative', height: `${(DAY_END - DAY_START) * HOUR_HEIGHT}px` }}>
 
                         {/* Hour rows */}
@@ -361,26 +475,51 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         ))}
 
                         {/* Event blocks */}
-                        {dayEvents.map(event => (
-                            <Box
-                                key={event.id}
-                                onClick={() => setSelectedEvent(event)}
-                                sx={{
-                                    ...getEventStyle(event),
-                                    outline: selectedEvent?.id === event.id ? '2px solid #fff' : 'none',
-                                    outlineOffset: '1px',
-                                    '&:hover': { filter: 'brightness(1.15)' },
-                                    transition: 'filter 0.15s',
-                                }}
-                            >
-                                <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e2535', lineHeight: 1.2 }}>
-                                    {event.title}
-                                </Typography>
-                                <Typography sx={{ fontSize: '0.68rem', color: '#1e253599' }}>
-                                    {formatTime(event.start_time)} – {formatTime(event.end_time)}
-                                </Typography>
-                            </Box>
-                        ))}
+                        {dayEvents.map(event => {
+                            const isDraggingThis = eventDrag?.event.id === event.id && eventDrag.isDragging;
+                            return (
+                                <Box
+                                    key={event.id}
+                                    onPointerDown={e => handleEventPointerDown(e, event)}
+                                    onPointerMove={handleEventPointerMove}
+                                    onPointerUp={handleEventPointerUp}
+                                    onPointerCancel={() => setEventDrag(null)}
+                                    onClick={e => {
+                                        e.stopPropagation();
+                                        // Non-admin: click directly selects. Admin: handled in onPointerUp.
+                                        if (!isAdmin) setSelectedEvent(event);
+                                    }}
+                                    sx={{
+                                        position: 'absolute',
+                                        top: `${getEventTop(event)}px`,
+                                        height: `${getEventHeight(event)}px`,
+                                        left: `${LABEL_WIDTH + 8}px`,
+                                        right: '8px',
+                                        backgroundColor: event.color,
+                                        borderRadius: '6px',
+                                        padding: '3px 8px',
+                                        overflow: 'hidden',
+                                        boxSizing: 'border-box',
+                                        userSelect: 'none',
+                                        cursor: isAdmin ? (isDraggingThis ? 'grabbing' : 'grab') : 'pointer',
+                                        transform: isDraggingThis ? `translateY(${eventDrag.deltaY}px)` : undefined,
+                                        opacity: isDraggingThis ? 0.85 : 1,
+                                        zIndex: isDraggingThis ? 10 : 1,
+                                        outline: selectedEvent?.id === event.id ? '2px solid #fff' : 'none',
+                                        outlineOffset: '1px',
+                                        transition: isDraggingThis ? 'none' : 'filter 0.15s',
+                                        '&:hover': { filter: 'brightness(1.15)' },
+                                    }}
+                                >
+                                    <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e2535', lineHeight: 1.2 }}>
+                                        {event.title}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: '0.68rem', color: '#1e253599' }}>
+                                        {formatTime(event.start_time)} – {formatTime(event.end_time)}
+                                    </Typography>
+                                </Box>
+                            );
+                        })}
 
                     </Box>
                 </Box>
@@ -451,23 +590,58 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                 </Box>
             </Box>
 
-            {/* ── Admin Event Form Dialog ── */}
-            {isAdmin && (
-                <Dialog
-                    open={formOpen}
-                    onClose={() => setFormOpen(false)}
-                    PaperProps={{ sx: { backgroundColor: '#2d3748', color: '#f0e8e8', minWidth: 380 } }}
-                >
-                    <DialogTitle sx={{ color: '#f0e8e8' }}>
-                        {editingId !== null ? 'Edit Event' : 'New Event'}
-                    </DialogTitle>
-                    <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
+            {/* ── Floating draggable form (replaces MUI Dialog) ── */}
+            {isAdmin && formOpen && (
+                <Box sx={{
+                    position: 'fixed',
+                    left: `${formPos.x}px`,
+                    top: `${formPos.y}px`,
+                    zIndex: 1300,
+                    width: 380,
+                    backgroundColor: '#2d3748',
+                    color: '#f0e8e8',
+                    borderRadius: '8px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                    border: '1px solid #4a5568',
+                    userSelect: 'none',
+                }}>
+                    {/* Draggable title bar */}
+                    <Box
+                        onPointerDown={handleFormDragStart}
+                        onPointerMove={handleFormDragMove}
+                        onPointerUp={handleFormDragEnd}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            px: 2,
+                            py: 1.5,
+                            borderBottom: '1px solid #4a5568',
+                            cursor: 'grab',
+                            '&:active': { cursor: 'grabbing' },
+                            borderRadius: '8px 8px 0 0',
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <DragIndicatorIcon sx={{ color: '#718096', fontSize: '1.1rem' }} />
+                            <Typography sx={{ color: '#f0e8e8', fontWeight: 600, fontSize: '1rem' }}>
+                                {editingId !== null ? 'Edit Event' : 'New Event'}
+                            </Typography>
+                        </Box>
+                        <IconButton size="small" onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
+
+                    {/* Form fields */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, userSelect: 'text' }}>
                         <TextField
                             label="Title"
                             value={formData.title}
                             onChange={e => setFormData(f => ({ ...f, title: e.target.value }))}
                             fullWidth
                             size="small"
+                            autoFocus
                             InputLabelProps={{ sx: { color: '#aaa' } }}
                             inputProps={{ style: { color: '#f0e8e8' } }}
                             sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } } }}
@@ -511,14 +685,13 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                             value={formData.description}
                             onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
                             multiline
-                            rows={4}
+                            rows={3}
                             fullWidth
                             size="small"
                             InputLabelProps={{ sx: { color: '#aaa' } }}
                             inputProps={{ style: { color: '#f0e8e8' } }}
                             sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } } }}
                         />
-                        {/* Color picker */}
                         <Box>
                             <Typography sx={{ color: '#aaa', fontSize: '0.8rem', mb: 1 }}>Color</Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -538,8 +711,10 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 ))}
                             </Box>
                         </Box>
-                    </DialogContent>
-                    <DialogActions sx={{ px: 3, pb: 2 }}>
+                    </Box>
+
+                    {/* Actions */}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 2, pb: 2 }}>
                         <Button onClick={() => setFormOpen(false)} sx={{ color: '#aaa' }}>Cancel</Button>
                         <Button
                             onClick={handleSave}
@@ -549,8 +724,8 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         >
                             Save
                         </Button>
-                    </DialogActions>
-                </Dialog>
+                    </Box>
+                </Box>
             )}
         </Box>
     );
