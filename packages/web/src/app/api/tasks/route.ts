@@ -15,8 +15,9 @@ export async function GET() {
             `SELECT id, title, description, status, priority,
               TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
               TO_CHAR(due_time, 'HH24:MI') AS due_time,
-              created_at
-             FROM tasks WHERE user_id = $1 ORDER BY due_date ASC NULLS LAST, created_at DESC`,
+              sort_order, created_at
+             FROM tasks WHERE user_id = $1
+             ORDER BY sort_order ASC NULLS LAST, created_at DESC`,
             [userId]
         );
         return NextResponse.json({ tasks: result.rows });
@@ -61,6 +62,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ task: result.rows[0] }, { status: 201 });
     } catch (err) {
         console.error('[POST /api/tasks]', err);
+        return NextResponse.json({ error: String(err) }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: NextRequest) {
+    const session = await getSessionSafe();
+    if (!session?.user?.sub) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = session.user.sub;
+
+    const { updates } = await request.json() as { updates: { id: number; sort_order: number }[] };
+    if (!Array.isArray(updates)) {
+        return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    }
+
+    try {
+        const pool = getPool();
+        await Promise.all(
+            updates.map(({ id, sort_order }) =>
+                pool.query(
+                    'UPDATE tasks SET sort_order=$1 WHERE id=$2 AND user_id=$3',
+                    [sort_order, id, userId]
+                )
+            )
+        );
+        return NextResponse.json({ ok: true });
+    } catch (err) {
+        console.error('[PATCH /api/tasks]', err);
         return NextResponse.json({ error: String(err) }, { status: 500 });
     }
 }

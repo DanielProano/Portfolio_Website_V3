@@ -21,8 +21,11 @@ type Task = {
     priority: 'low' | 'medium' | 'high';
     due_date: string | null;
     due_time: string | null;
+    sort_order: number | null;
     created_at: string;
 };
+
+type TaskDragState = { id: number; originalIndex: number; deltaY: number; isDragging: boolean };
 
 type TaskFilter = 'all' | 'todo' | 'in_progress' | 'done';
 
@@ -57,8 +60,17 @@ const inputSx = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const TASK_ROW_HEIGHT = 72;
+
 function emptyForm(): FormData {
     return { title: '', description: '', status: 'todo', priority: 'medium', due_date: '', due_time: '' };
+}
+
+function moveItem<T>(arr: T[], from: number, to: number): T[] {
+    const result = [...arr];
+    const [item] = result.splice(from, 1);
+    result.splice(to, 0, item);
+    return result;
 }
 
 function formatDueDate(due_date: string | null, due_time: string | null): string | null {
@@ -83,6 +95,8 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
     const [formData, setFormData] = useState<FormData>(emptyForm());
     const [formPos, setFormPos] = useState({ x: 200, y: 150 });
     const formDragRef = useRef<{ startPX: number; startPY: number; origX: number; origY: number } | null>(null);
+    const [taskDrag, setTaskDrag] = useState<TaskDragState | null>(null);
+    const taskDragStartY = useRef(0);
 
     const fetchTasks = useCallback(async () => {
         try {
@@ -100,6 +114,52 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
     }, [isAdmin, fetchTasks]);
 
     const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
+
+    const displayedTasks = (() => {
+        if (!taskDrag?.isDragging) return filtered;
+        const toIdx = Math.max(0, Math.min(filtered.length - 1,
+            taskDrag.originalIndex + Math.round(taskDrag.deltaY / TASK_ROW_HEIGHT)));
+        return moveItem(filtered, taskDrag.originalIndex, toIdx);
+    })();
+
+    const handleTaskDragStart = (e: React.PointerEvent, taskId: number, index: number) => {
+        e.stopPropagation();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        taskDragStartY.current = e.clientY;
+        setTaskDrag({ id: taskId, originalIndex: index, deltaY: 0, isDragging: false });
+    };
+
+    const handleTaskDragMove = (e: React.PointerEvent) => {
+        if (!taskDrag) return;
+        const deltaY = e.clientY - taskDragStartY.current;
+        setTaskDrag(prev => prev ? { ...prev, deltaY, isDragging: Math.abs(deltaY) > 4 } : null);
+    };
+
+    const handleTaskDragEnd = async () => {
+        if (!taskDrag) return;
+        if (!taskDrag.isDragging) { setTaskDrag(null); return; }
+
+        const toIdx = Math.max(0, Math.min(filtered.length - 1,
+            taskDrag.originalIndex + Math.round(taskDrag.deltaY / TASK_ROW_HEIGHT)));
+        const reordered = moveItem(filtered, taskDrag.originalIndex, toIdx);
+        const reorderedWithOrder = reordered.map((t, i) => ({ ...t, sort_order: i }));
+
+        // Walk the full tasks array and fill filtered-task slots with the reordered queue,
+        // so the array order (not just sort_order property) actually changes.
+        const reorderedMap = new Map(reorderedWithOrder.map(t => [t.id, t]));
+        setTasks(prev => {
+            const queue = [...reorderedWithOrder];
+            let qi = 0;
+            return prev.map(t => reorderedMap.has(t.id) ? queue[qi++] : t);
+        });
+        setTaskDrag(null);
+
+        await fetch('/api/tasks', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates: reordered.map((t, i) => ({ id: t.id, sort_order: i })) }),
+        });
+    };
 
     // ── Form helpers ──
 
@@ -244,12 +304,17 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                         No tasks here.
                     </Typography>
                 ) : (
-                    filtered.map(task => {
+                    displayedTasks.map((task, index) => {
                         const dueLabel = formatDueDate(task.due_date, task.due_time);
                         const isDone = task.status === 'done';
+                        const isBeingDragged = taskDrag?.id === task.id && taskDrag.isDragging;
                         return (
                             <Box
                                 key={task.id}
+                                onPointerDown={isAdmin ? e => handleTaskDragStart(e, task.id, index) : undefined}
+                                onPointerMove={isAdmin ? handleTaskDragMove : undefined}
+                                onPointerUp={isAdmin ? handleTaskDragEnd : undefined}
+                                onPointerCancel={isAdmin ? () => setTaskDrag(null) : undefined}
                                 sx={{
                                     backgroundColor: '#252f42',
                                     borderRadius: 2,
@@ -258,12 +323,16 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                     display: 'flex',
                                     alignItems: 'flex-start',
                                     gap: 1,
-                                    opacity: isDone ? 0.65 : 1,
-                                    transition: 'opacity 0.2s',
+                                    opacity: isBeingDragged ? 0.5 : isDone ? 0.65 : 1,
+                                    outline: isBeingDragged ? '1px solid #64b5f6' : 'none',
+                                    transition: taskDrag?.isDragging ? 'none' : 'opacity 0.2s',
+                                    cursor: isAdmin ? (taskDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
+                                    userSelect: 'none',
                                 }}
                             >
                                 <Checkbox
                                     checked={isDone}
+                                    onPointerDown={e => e.stopPropagation()}
                                     onChange={() => isAdmin && handleToggle(task)}
                                     disabled={!isAdmin}
                                     size="small"
@@ -312,12 +381,12 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                     {isAdmin && (
                                         <>
                                             <Tooltip title="Edit">
-                                                <IconButton size="small" onClick={() => openEdit(task)} sx={{ color: '#64b5f6', p: 0.5 }}>
+                                                <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => openEdit(task)} sx={{ color: '#64b5f6', p: 0.5 }}>
                                                     <EditIcon sx={{ fontSize: '1rem' }} />
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Delete">
-                                                <IconButton size="small" onClick={() => handleDelete(task.id)} sx={{ color: '#e57373', p: 0.5 }}>
+                                                <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => handleDelete(task.id)} sx={{ color: '#e57373', p: 0.5 }}>
                                                     <DeleteIcon sx={{ fontSize: '1rem' }} />
                                                 </IconButton>
                                             </Tooltip>

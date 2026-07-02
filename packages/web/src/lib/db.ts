@@ -53,6 +53,9 @@ function initSchema(pool: Pool) {
     pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT ''`)
         .catch(() => {});
 
+    pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sort_order INTEGER`)
+        .catch(() => {});
+
     pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
