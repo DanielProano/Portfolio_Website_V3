@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafe } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-
 export async function GET(request: NextRequest) {
+    const session = await getSessionSafe();
+    if (!session?.user?.sub) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = session.user.sub;
+
     const { searchParams } = new URL(request.url);
     const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()));
     const month = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1));
@@ -13,24 +17,24 @@ export async function GET(request: NextRequest) {
     const end = new Date(year, month, 1);
 
     try {
-        const session = await getSessionSafe();
-        const isAdmin = session?.user?.email === ADMIN_EMAIL;
-
         const pool = getPool();
-        const columns = isAdmin
-            ? 'id, title, description, start_time, end_time, color'
-            : 'id, title, start_time, end_time, color';
 
         const result = await pool.query(
-            `SELECT ${columns} FROM calendar_events WHERE start_time >= $1 AND start_time < $2 ORDER BY start_time`,
-            [start, end]
+            `SELECT id, title, description, start_time, end_time, color
+             FROM calendar_events
+             WHERE user_id = $1 AND start_time >= $2 AND start_time < $3
+             ORDER BY start_time`,
+            [userId, start, end]
         );
 
         let tasks: unknown[] = [];
         try {
             const taskResult = await pool.query(
-                `SELECT id, title, status, priority, due_date, due_time FROM tasks WHERE due_date >= $1::date AND due_date < $2::date ORDER BY due_date, due_time NULLS LAST`,
-                [start, end]
+                `SELECT id, title, status, priority, due_date, due_time
+                 FROM tasks
+                 WHERE user_id = $1 AND due_date >= $2::date AND due_date < $3::date
+                 ORDER BY due_date, due_time NULLS LAST`,
+                [userId, start, end]
             );
             tasks = taskResult.rows;
         } catch {
@@ -45,9 +49,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     const session = await getSessionSafe();
-    if (!session || session.user.email !== ADMIN_EMAIL) {
+    if (!session?.user?.sub) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.sub;
 
     const { title, description, start_time, end_time, color } = await request.json();
 
@@ -58,9 +63,10 @@ export async function POST(request: NextRequest) {
     try {
         const pool = getPool();
         const result = await pool.query(
-            `INSERT INTO calendar_events (title, description, start_time, end_time, color)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [title, description ?? '', start_time, end_time, color ?? '#64b5f6']
+            `INSERT INTO calendar_events (user_id, title, description, start_time, end_time, color)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, title, description, start_time, end_time, color`,
+            [userId, title, description ?? '', start_time, end_time, color ?? '#64b5f6']
         );
         return NextResponse.json({ event: result.rows[0] }, { status: 201 });
     } catch (err) {

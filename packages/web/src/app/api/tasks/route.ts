@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafe } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-
 export async function GET() {
     const session = await getSessionSafe();
-    if (!session || session.user.email !== ADMIN_EMAIL) {
+    if (!session?.user?.sub) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.sub;
 
     try {
         const pool = getPool();
         const result = await pool.query(
-            `SELECT * FROM tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`
+            `SELECT id, title, description, status, priority, due_date, due_time, created_at
+             FROM tasks WHERE user_id = $1 ORDER BY due_date ASC NULLS LAST, created_at DESC`,
+            [userId]
         );
         return NextResponse.json({ tasks: result.rows });
     } catch (err) {
@@ -24,9 +25,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     const session = await getSessionSafe();
-    if (!session || session.user.email !== ADMIN_EMAIL) {
+    if (!session?.user?.sub) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.sub;
 
     const { title, description, status, priority, due_date, due_time } = await request.json();
 
@@ -37,9 +39,11 @@ export async function POST(request: NextRequest) {
     try {
         const pool = getPool();
         const result = await pool.query(
-            `INSERT INTO tasks (title, description, status, priority, due_date, due_time)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            `INSERT INTO tasks (user_id, title, description, status, priority, due_date, due_time)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING id, title, description, status, priority, due_date, due_time, created_at`,
             [
+                userId,
                 title,
                 description ?? '',
                 status ?? 'todo',

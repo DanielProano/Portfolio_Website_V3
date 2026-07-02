@@ -151,12 +151,13 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const fetchEvents = useCallback(async (year: number, month: number) => {
         try {
             const res = await fetch(`/api/calendar?year=${year}&month=${month + 1}`);
-            if (!res.ok) { setEvents([]); return; }
+            if (!res.ok) { setEvents([]); setTasks([]); return; }
             const data = await res.json();
             setEvents(data.events ?? []);
             setTasks(data.tasks ?? []);
         } catch {
             setEvents([]);
+            setTasks([]);
         }
     }, []);
 
@@ -229,10 +230,11 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const handleSave = async () => {
         const [h1, m1] = formData.startTime.split(':').map(Number);
         const [h2, m2] = formData.endTime.split(':').map(Number);
-        const start = new Date(formData.date);
-        start.setHours(h1, m1, 0, 0);
-        const end = new Date(formData.date);
-        end.setHours(h2, m2, 0, 0);
+        // Parse date as local midnight — new Date("YYYY-MM-DD") would be UTC midnight,
+        // which shifts the date backwards for UTC- timezones.
+        const [dy, dm, dd] = formData.date.split('-').map(Number);
+        const start = new Date(dy, dm - 1, dd, h1, m1, 0, 0);
+        const end = new Date(dy, dm - 1, dd, h2, m2, 0, 0);
 
         const body = {
             title: formData.title,
@@ -242,19 +244,22 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             color: formData.color,
         };
 
+        let res: Response;
         if (editingId !== null) {
-            await fetch(`/api/calendar/${editingId}`, {
+            res = await fetch(`/api/calendar/${editingId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
         } else {
-            await fetch('/api/calendar', {
+            res = await fetch('/api/calendar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
         }
+
+        if (!res.ok) return;
 
         setFormOpen(false);
         setSelectedEvent(null);
@@ -265,7 +270,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         const start = new Date(event.start_time);
         const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
         const timeStr = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-        await fetch('/api/tasks', {
+        const res = await fetch('/api/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -277,9 +282,11 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                 due_time: timeStr,
             }),
         });
-        setTaskCreatedId(event.id);
-        setTimeout(() => setTaskCreatedId(null), 2000);
-        await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+        if (res.ok) {
+            setTaskCreatedId(event.id);
+            setTimeout(() => setTaskCreatedId(null), 2000);
+            await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+        }
     };
 
     const handleDelete = async (id: number) => {
@@ -419,8 +426,8 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         const isSelected = isSameDay(cellDate, selectedDay);
                         const hasEvents = events.some(e => isSameDay(new Date(e.start_time), cellDate));
                         const hasTasks = tasks.some(t => {
-                            const td = new Date(`${t.due_date}T12:00:00Z`);
-                            return isSameDay(td, cellDate);
+                            const [y, mo, d] = (t.due_date as string).split('-').map(Number);
+                            return isSameDay(new Date(y, mo - 1, d), cellDate);
                         });
                         return (
                             <Box
@@ -575,8 +582,8 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         {tasks
                             .filter(t => {
                                 if (!t.due_time) return false;
-                                const td = new Date(`${t.due_date}T12:00:00Z`);
-                                return isSameDay(td, selectedDay);
+                                const [y, mo, d] = (t.due_date as string).split('-').map(Number);
+                                return isSameDay(new Date(y, mo - 1, d), selectedDay);
                             })
                             .map(task => {
                                 const [h, m] = task.due_time!.split(':').map(Number);
