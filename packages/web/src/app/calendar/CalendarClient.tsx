@@ -10,7 +10,6 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddTaskIcon from '@mui/icons-material/AddTask';
@@ -139,7 +138,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const [formOpen, setFormOpen] = useState(false);
     const [formData, setFormData] = useState<FormData>(emptyForm(today));
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [formPos, setFormPos] = useState({ x: 200, y: 150 });
     const [eventDrag, setEventDrag] = useState<EventDrag | null>(null);
     const [taskCreatedId, setTaskCreatedId] = useState<number | null>(null);
     const [quickNotes, setQuickNotes] = useState('');
@@ -150,7 +148,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const selectedEventRef = useRef<CalendarEvent | null>(null);
     const quickEditsRef = useRef<{ notes: string; eventId: number } | null>(null);
-    const formDragRef = useRef<{ startPX: number; startPY: number; origX: number; origY: number } | null>(null);
+
     // Prevents timeline click from firing a create-form open right after a drag ends
     const dragJustEndedRef = useRef(false);
 
@@ -226,11 +224,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         const minute = snappedMinutes % 60;
         const clampedHour = Math.max(DAY_START, Math.min(DAY_END - 1, hour));
 
-        // Keep form within viewport
-        const formX = Math.min(e.clientX + 16, window.innerWidth - 404);
-        const formY = Math.min(e.clientY - 32, window.innerHeight - 520);
-        setFormPos({ x: Math.max(8, formX), y: Math.max(8, formY) });
-
         setEditingId(null);
         setFormData(emptyForm(selectedDay, clampedHour, minute));
         setFormOpen(true);
@@ -277,14 +270,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             description: event.description ?? '',
             color: event.color,
         });
-        // Position form near the timeline, vertically near the event
-        if (timelineScrollRef.current) {
-            const rect = timelineScrollRef.current.getBoundingClientRect();
-            const eventTopViewport = rect.top + getEventTop(event, hourHeight) - timelineScrollRef.current.scrollTop;
-            const formX = Math.min(rect.right + 12, window.innerWidth - 404);
-            const formY = Math.min(Math.max(8, eventTopViewport - 32), window.innerHeight - 520);
-            setFormPos({ x: Math.max(8, formX), y: formY });
-        }
         setFormOpen(true);
     };
 
@@ -362,28 +347,6 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         setSelectedEvent(null);
         await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
     };
-
-    // ── Form drag ──
-
-    const handleFormDragStart = (e: React.PointerEvent) => {
-        e.currentTarget.setPointerCapture(e.pointerId);
-        formDragRef.current = {
-            startPX: e.clientX,
-            startPY: e.clientY,
-            origX: formPos.x,
-            origY: formPos.y,
-        };
-    };
-
-    const handleFormDragMove = (e: React.PointerEvent) => {
-        if (!formDragRef.current) return;
-        setFormPos({
-            x: Math.max(0, Math.min(window.innerWidth - 380, formDragRef.current.origX + e.clientX - formDragRef.current.startPX)),
-            y: Math.max(0, Math.min(window.innerHeight - 100, formDragRef.current.origY + e.clientY - formDragRef.current.startPY)),
-        });
-    };
-
-    const handleFormDragEnd = () => { formDragRef.current = null; };
 
     // ── Event drag to reschedule ──
 
@@ -875,29 +838,29 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                         {selectedEvent.title}
                                     </Typography>
                                 </Box>
-                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 0.25 } }}>
                                     {isAdmin && (
                                         <>
                                             <Tooltip title={taskCreatedId === selectedEvent.id ? 'Task created!' : 'Create Task'}>
-                                                <IconButton size="small" onClick={() => handleCreateTaskFromEvent(selectedEvent)} sx={{ color: taskCreatedId === selectedEvent.id ? '#81c784' : '#ffb74d' }}>
-                                                    <AddTaskIcon fontSize="small" />
+                                                <IconButton onClick={() => handleCreateTaskFromEvent(selectedEvent)} sx={{ color: taskCreatedId === selectedEvent.id ? '#81c784' : '#ffb74d', p: { xs: 1, sm: 0.5 } }}>
+                                                    <AddTaskIcon sx={{ fontSize: { xs: '1.4rem', sm: '1.1rem' } }} />
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Edit">
-                                                <IconButton size="small" onClick={() => openEdit(selectedEvent)} sx={{ color: '#64b5f6' }}>
-                                                    <EditIcon fontSize="small" />
+                                                <IconButton onClick={() => openEdit(selectedEvent)} sx={{ color: '#64b5f6', p: { xs: 1, sm: 0.5 } }}>
+                                                    <EditIcon sx={{ fontSize: { xs: '1.4rem', sm: '1.1rem' } }} />
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Delete">
-                                                <IconButton size="small" onClick={() => handleDelete(selectedEvent.id)} sx={{ color: '#e57373' }}>
-                                                    <DeleteIcon fontSize="small" />
+                                                <IconButton onClick={() => handleDelete(selectedEvent.id)} sx={{ color: '#e57373', p: { xs: 1, sm: 0.5 } }}>
+                                                    <DeleteIcon sx={{ fontSize: { xs: '1.4rem', sm: '1.1rem' } }} />
                                                 </IconButton>
                                             </Tooltip>
                                         </>
                                     )}
                                     <Tooltip title="Close">
-                                        <IconButton size="small" onClick={() => setSelectedEvent(null)} sx={{ color: '#718096' }}>
-                                            <CloseIcon fontSize="small" />
+                                        <IconButton onClick={() => setSelectedEvent(null)} sx={{ color: '#718096', p: { xs: 1, sm: 0.5 } }}>
+                                            <CloseIcon sx={{ fontSize: { xs: '1.4rem', sm: '1.1rem' } }} />
                                         </IconButton>
                                     </Tooltip>
                                 </Box>
@@ -940,26 +903,25 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                 </Box>
             </Box>
 
-            {/* ── Floating draggable form (replaces MUI Dialog) ── */}
+            {/* ── Centered form modal ── */}
             {isAdmin && formOpen && (
                 <Box sx={{
                     position: 'fixed',
-                    left: `${formPos.x}px`,
-                    top: `${formPos.y}px`,
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
                     zIndex: 1300,
-                    width: 380,
+                    width: { xs: '95vw', sm: '380px' },
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
                     backgroundColor: '#2d3748',
                     color: '#f0e8e8',
                     borderRadius: '8px',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                     border: '1px solid #4a5568',
-                    userSelect: 'none',
                 }}>
-                    {/* Draggable title bar */}
+                    {/* Title bar */}
                     <Box
-                        onPointerDown={handleFormDragStart}
-                        onPointerMove={handleFormDragMove}
-                        onPointerUp={handleFormDragEnd}
                         sx={{
                             display: 'flex',
                             alignItems: 'center',
@@ -967,18 +929,13 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                             px: 2,
                             py: 1.5,
                             borderBottom: '1px solid #4a5568',
-                            cursor: 'grab',
-                            '&:active': { cursor: 'grabbing' },
                             borderRadius: '8px 8px 0 0',
                         }}
                     >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: '#718096', fontSize: '1.1rem' }} />
-                            <Typography sx={{ color: '#f0e8e8', fontWeight: 600, fontSize: '1rem' }}>
-                                {editingId !== null ? 'Edit Event' : 'New Event'}
-                            </Typography>
-                        </Box>
-                        <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
+                        <Typography sx={{ color: '#f0e8e8', fontWeight: 600, fontSize: '1rem' }}>
+                            {editingId !== null ? 'Edit Event' : 'New Event'}
+                        </Typography>
+                        <IconButton size="small" onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
                             <CloseIcon fontSize="small" />
                         </IconButton>
                     </Box>

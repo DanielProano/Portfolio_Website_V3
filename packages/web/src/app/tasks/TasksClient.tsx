@@ -9,7 +9,6 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,8 +92,6 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
     const [formOpen, setFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formData, setFormData] = useState<FormData>(emptyForm());
-    const [formPos, setFormPos] = useState({ x: 200, y: 150 });
-    const formDragRef = useRef<{ startPX: number; startPY: number; origX: number; origY: number } | null>(null);
     const [taskDrag, setTaskDrag] = useState<TaskDragState | null>(null);
     const taskDragStartY = useRef(0);
 
@@ -166,7 +163,6 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
     const openCreate = () => {
         setEditingId(null);
         setFormData(emptyForm());
-        setFormPos({ x: 200, y: 150 });
         setFormOpen(true);
     };
 
@@ -180,7 +176,6 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
             due_date: task.due_date ?? '',
             due_time: task.due_time ?? '',
         });
-        setFormPos({ x: 200, y: 150 });
         setFormOpen(true);
     };
 
@@ -232,23 +227,6 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
         });
         await fetchTasks();
     };
-
-    // ── Form drag ──
-
-    const handleFormDragStart = (e: React.PointerEvent) => {
-        e.currentTarget.setPointerCapture(e.pointerId);
-        formDragRef.current = { startPX: e.clientX, startPY: e.clientY, origX: formPos.x, origY: formPos.y };
-    };
-
-    const handleFormDragMove = (e: React.PointerEvent) => {
-        if (!formDragRef.current) return;
-        setFormPos({
-            x: Math.max(0, Math.min(window.innerWidth - 400, formDragRef.current.origX + e.clientX - formDragRef.current.startPX)),
-            y: Math.max(0, Math.min(window.innerHeight - 100, formDragRef.current.origY + e.clientY - formDragRef.current.startPY)),
-        });
-    };
-
-    const handleFormDragEnd = () => { formDragRef.current = null; };
 
     // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -399,39 +377,34 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                 )}
             </Box>
 
-            {/* Floating draggable form */}
+            {/* Centered form modal */}
             {isAdmin && formOpen && (
                 <Box sx={{
                     position: 'fixed',
-                    left: `${formPos.x}px`,
-                    top: `${formPos.y}px`,
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
                     zIndex: 1300,
-                    width: 400,
+                    width: { xs: '95vw', sm: '400px' },
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
                     backgroundColor: '#2d3748',
                     color: '#f0e8e8',
                     borderRadius: '8px',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                     border: '1px solid #4a5568',
-                    userSelect: 'none',
                 }}>
                     <Box
-                        onPointerDown={handleFormDragStart}
-                        onPointerMove={handleFormDragMove}
-                        onPointerUp={handleFormDragEnd}
                         sx={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             px: 2, py: 1.5, borderBottom: '1px solid #4a5568',
-                            cursor: 'grab', '&:active': { cursor: 'grabbing' },
                             borderRadius: '8px 8px 0 0',
                         }}
                     >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: '#718096', fontSize: '1.1rem' }} />
-                            <Typography sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                                {editingId !== null ? 'Edit Task' : 'New Task'}
-                            </Typography>
-                        </Box>
-                        <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: '1rem' }}>
+                            {editingId !== null ? 'Edit Task' : 'New Task'}
+                        </Typography>
+                        <IconButton size="small" onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
                             <CloseIcon fontSize="small" />
                         </IconButton>
                     </Box>

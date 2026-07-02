@@ -216,7 +216,7 @@ export default function Home() {
         </Box>
 
         {/* Slideshow */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ flex: 1, minWidth: 0, maxWidth: { xl: '750px' }, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box
             sx={{
               position: 'relative',
