@@ -31,7 +31,7 @@ export default function RegisterPage() {
         const hash = bcrypt.hashSync(password, salt);
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/register`, {
+            const response = await fetch(`/api/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user: email, hash, master_salt: salt }),

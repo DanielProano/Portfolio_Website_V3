@@ -52,4 +52,25 @@ function initSchema(pool: Pool) {
 
     pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT ''`)
         .catch(() => {});
+
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            hash TEXT NOT NULL,
+            master_salt TEXT NOT NULL,
+            enc_salt TEXT NOT NULL
+        )
+    `).catch(err => console.error('[db] users table error:', err));
+
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS vault (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            service TEXT NOT NULL,
+            login TEXT NOT NULL,
+            password TEXT NOT NULL,
+            notes TEXT DEFAULT ''
+        )
+    `).catch(err => console.error('[db] vault table error:', err));
 }

@@ -21,12 +21,12 @@ export default function LoginPage() {
     async function login() {
         try {
             const salt_response = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/salt?user=${encodeURIComponent(email)}`
+                `/api/salt?user=${encodeURIComponent(email)}`
             );
             const { master_salt } = await salt_response.json();
             const hash = bcrypt.hashSync(password, master_salt);
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/verify`, {
+            const response = await fetch(`/api/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user: email, hash: hash }),
@@ -54,12 +54,12 @@ export default function LoginPage() {
             const guestPassword = 'GuestDemo123!';
             
             const salt_response = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/salt?user=${encodeURIComponent(guestEmail)}`
+                `/api/salt?user=${encodeURIComponent(guestEmail)}`
             );
             const { master_salt } = await salt_response.json();
             const hash = bcrypt.hashSync(guestPassword, master_salt);
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/verify`, {
+            const response = await fetch(`/api/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user: guestEmail, hash }),
