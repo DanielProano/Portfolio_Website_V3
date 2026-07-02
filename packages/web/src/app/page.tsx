@@ -339,13 +339,14 @@ export default function Home() {
               key={index}
               onClick={() => project.link && window.open(project.link, '_blank')}
               sx={{
-                backgroundColor: '#1e2535',
+                backgroundColor: '#2a3550',
+                border: '1px solid #3a4d6b',
                 borderRadius: 4,
                 overflow: 'hidden',
                 cursor: project.link ? 'pointer' : 'default',
                 transition: '0.2s',
                 '&:hover': project.link
-                  ? { transform: 'translateY(-4px)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }
+                  ? { transform: 'translateY(-4px)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', borderColor: '#5a7aaa' }
                   : {},
               }}
             >
