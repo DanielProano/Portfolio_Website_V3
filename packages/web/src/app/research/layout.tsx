@@ -24,7 +24,7 @@ export default async function ResearchLayout({ children }: { children: ReactNode
         <ResearchNav posts={posts} />
       </Box>
 
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
         {children}
       </Box>
     </Box>
