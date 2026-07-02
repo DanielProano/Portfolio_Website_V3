@@ -119,7 +119,8 @@ export default function Home() {
         {/* ── Sidebar ── */}
         <Box
           sx={{
-            flex: '0 0 240px',
+            flex: '0 0 clamp(200px, 22vw, 300px)',
+            minWidth: 'clamp(200px, 22vw, 300px)',
             backgroundColor: '#1e2535',
             color: '#ffffff',
             padding: 4,
@@ -225,8 +226,8 @@ export default function Home() {
                 borderRadius: 2,
                 overflow: 'hidden',
                 aspectRatio: '4/3',
-                maxWidth: { xs: '100%', lg: '90%' },
-                minHeight: '300px',
+                width: '100%',
+                minHeight: { xs: '380px', md: '420px', lg: '300px' },
                 boxShadow: 3,
               }}
             >
