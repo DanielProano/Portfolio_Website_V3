@@ -7,11 +7,11 @@ export default async function ResearchLayout({ children }: { children: ReactNode
   const posts = getAllPosts();
 
   return (
-    <Box sx={{ display: 'flex', gap: 3, py: 2, alignItems: 'flex-start' }}>
+    <Box sx={{ maxWidth: '1400px', mx: 'auto', display: 'flex', gap: 3, py: 2, alignItems: 'flex-start' }}>
       <Box
         sx={{
-          flex: '0 0 clamp(200px, 18vw, 260px)',
-          minWidth: 'clamp(200px, 18vw, 260px)',
+          flex: '0 0 clamp(220px, 20vw, 320px)',
+          minWidth: 'clamp(220px, 20vw, 320px)',
           backgroundColor: '#1e2535',
           borderRadius: 2,
           position: 'sticky',
