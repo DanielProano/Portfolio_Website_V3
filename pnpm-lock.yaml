@@ -125,6 +125,9 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      jsonwebtoken:
+        specifier: ^9.0.3
+        version: 9.0.3
       next-mdx-remote:
         specifier: ^6.0.0
         version: 6.0.0(@types/react@18.3.29)(react@18.3.1)
@@ -141,6 +144,9 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
     devDependencies:
+      '@types/jsonwebtoken':
+        specifier: ^9.0.10
+        version: 9.0.10
       '@types/node':
         specifier: ^20.3.1
         version: 20.19.41

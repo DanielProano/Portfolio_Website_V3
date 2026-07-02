@@ -37,7 +37,7 @@ export default function VaultPage() {
         const { key, token } = derived_key;
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/vault/get`, {
+            const response = await fetch(`/api/vault/get`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             });
@@ -84,7 +84,7 @@ export default function VaultPage() {
         const passEnc = await encrypt(key, password);
         const notesEnc = await encrypt(key, notes);
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/vault/store`, {
+        const response = await fetch(`/api/vault/store`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -104,7 +104,7 @@ export default function VaultPage() {
 
         const { token } = derived_key;
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/vault/delete/${id}`, {
+        const response = await fetch(`/api/vault/delete/${id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         });
