@@ -54,7 +54,8 @@ const FILTER_LABELS: Record<TaskFilter, string> = {
 
 const inputSx = {
     '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } },
-    '& .MuiInputLabel-root': { color: '#aaa' },
+    '& .MuiInputLabel-root': { color: '#aaa', fontSize: { xs: '0.875rem', lg: '1rem' } },
+    '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', lg: '1rem' } },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -255,14 +256,14 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                     <Button
                         key={f}
                         onClick={() => setFilter(f)}
-                        size="small"
                         sx={{
                             color: filter === f ? '#90b4e8' : '#718096',
                             textTransform: 'none',
                             fontWeight: filter === f ? 700 : 400,
+                            fontSize: { xs: '0.8rem', lg: '0.95rem' },
                             borderBottom: filter === f ? '2px solid #90b4e8' : '2px solid transparent',
                             borderRadius: 0,
-                            px: 1.5,
+                            px: { xs: 1.5, lg: 2 },
                             '&:hover': { color: '#90b4e8' },
                         }}
                     >
@@ -296,11 +297,11 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                 sx={{
                                     backgroundColor: '#252f42',
                                     borderRadius: 2,
-                                    p: 2,
-                                    mb: 1,
+                                    p: { xs: 2, lg: 2.5 },
+                                    mb: { xs: 1, lg: 1.5 },
                                     display: 'flex',
                                     alignItems: 'flex-start',
-                                    gap: 1,
+                                    gap: { xs: 1, lg: 1.5 },
                                     opacity: isBeingDragged ? 0.5 : isDone ? 0.65 : 1,
                                     outline: isBeingDragged ? '1px solid #64b5f6' : 'none',
                                     transition: taskDrag?.isDragging ? 'none' : 'opacity 0.2s',
@@ -319,7 +320,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography sx={{
                                         fontWeight: 700,
-                                        fontSize: '0.95rem',
+                                        fontSize: { xs: '0.95rem', lg: '1.05rem' },
                                         textDecoration: isDone ? 'line-through' : 'none',
                                         color: isDone ? '#718096' : '#f0e8e8',
                                     }}>
@@ -328,7 +329,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                     {task.description && (
                                         <Typography sx={{
                                             color: '#aaa',
-                                            fontSize: '0.8rem',
+                                            fontSize: { xs: '0.8rem', lg: '0.875rem' },
                                             mt: 0.25,
                                             overflow: 'hidden',
                                             textOverflow: 'ellipsis',
@@ -346,26 +347,26 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                             backgroundColor: `${PRIORITY_COLORS[task.priority]}22`,
                                             color: PRIORITY_COLORS[task.priority],
                                             border: `1px solid ${PRIORITY_COLORS[task.priority]}55`,
-                                            fontSize: '0.68rem',
-                                            height: '20px',
+                                            fontSize: { xs: '0.68rem', lg: '0.75rem' },
+                                            height: { xs: '20px', lg: '24px' },
                                             textTransform: 'capitalize',
                                         }}
                                     />
                                     {dueLabel && (
-                                        <Typography sx={{ color: '#aaa', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                        <Typography sx={{ color: '#aaa', fontSize: { xs: '0.78rem', lg: '0.85rem' }, whiteSpace: 'nowrap' }}>
                                             {dueLabel}
                                         </Typography>
                                     )}
                                     {isAdmin && (
                                         <>
                                             <Tooltip title="Edit">
-                                                <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => openEdit(task)} sx={{ color: '#64b5f6', p: 0.5 }}>
-                                                    <EditIcon sx={{ fontSize: '1rem' }} />
+                                                <IconButton onPointerDown={e => e.stopPropagation()} onClick={() => openEdit(task)} sx={{ color: '#64b5f6', p: { xs: 0.5, lg: 0.75 } }}>
+                                                    <EditIcon sx={{ fontSize: { xs: '1rem', lg: '1.25rem' } }} />
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Delete">
-                                                <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => handleDelete(task.id)} sx={{ color: '#e57373', p: 0.5 }}>
-                                                    <DeleteIcon sx={{ fontSize: '1rem' }} />
+                                                <IconButton onPointerDown={e => e.stopPropagation()} onClick={() => handleDelete(task.id)} sx={{ color: '#e57373', p: { xs: 0.5, lg: 0.75 } }}>
+                                                    <DeleteIcon sx={{ fontSize: { xs: '1rem', lg: '1.25rem' } }} />
                                                 </IconButton>
                                             </Tooltip>
                                         </>
@@ -385,7 +386,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 1300,
-                    width: { xs: '95vw', sm: '400px' },
+                    width: { xs: '95vw', sm: '400px', lg: '480px' },
                     maxHeight: '90vh',
                     overflowY: 'auto',
                     backgroundColor: '#2d3748',
@@ -401,7 +402,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                             borderRadius: '8px 8px 0 0',
                         }}
                     >
-                        <Typography sx={{ fontWeight: 600, fontSize: '1rem' }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: { xs: '1rem', lg: '1.1rem' } }}>
                             {editingId !== null ? 'Edit Task' : 'New Task'}
                         </Typography>
                         <IconButton size="small" onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
@@ -409,7 +410,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                         </IconButton>
                     </Box>
 
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, userSelect: 'text' }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: { xs: 2, lg: 2.5 }, userSelect: 'text' }}>
                         <TextField
                             label="Title" value={formData.title}
                             onChange={e => setFormData(f => ({ ...f, title: e.target.value }))}
@@ -472,13 +473,13 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                         </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 2, pb: 2 }}>
-                        <Button onClick={() => setFormOpen(false)} sx={{ color: '#aaa', textTransform: 'none' }}>Cancel</Button>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: { xs: 2, lg: 2.5 }, pb: { xs: 2, lg: 2.5 } }}>
+                        <Button onClick={() => setFormOpen(false)} sx={{ color: '#aaa', textTransform: 'none', fontSize: { xs: '0.875rem', lg: '1rem' } }}>Cancel</Button>
                         <Button
                             onClick={handleSave}
                             disabled={!formData.title}
                             variant="contained"
-                            sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, '&:hover': { backgroundColor: '#64b5f6' } }}
+                            sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, fontSize: { xs: '0.875rem', lg: '1rem' }, '&:hover': { backgroundColor: '#64b5f6' } }}
                         >
                             Save
                         </Button>
