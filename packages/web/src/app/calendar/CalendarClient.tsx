@@ -244,6 +244,16 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             color: formData.color,
         };
 
+        // Optimistic update: show the change immediately before the round trip completes.
+        // fetchEvents below reconciles the server state (e.g. replaces the temp ID on creates).
+        setFormOpen(false);
+        setSelectedEvent(null);
+        if (editingId !== null) {
+            setEvents(prev => prev.map(e => e.id === editingId ? { ...e, ...body } : e));
+        } else {
+            setEvents(prev => [...prev, { id: -1, ...body }]);
+        }
+
         let res: Response;
         if (editingId !== null) {
             res = await fetch(`/api/calendar/${editingId}`, {
@@ -259,10 +269,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             });
         }
 
-        if (!res.ok) return;
-
-        setFormOpen(false);
-        setSelectedEvent(null);
+        // Always reconcile — reverts on failure, assigns real ID on create
         await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
     };
 
@@ -356,9 +363,17 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         const dayMin = new Date(origStart); dayMin.setHours(DAY_START, 0, 0, 0);
         const dayMax = new Date(origStart); dayMax.setHours(DAY_END, 0, 0, 0);
 
-        setEventDrag(null);
-
         if (newStart >= dayMin && newEnd <= dayMax) {
+            // Optimistic update + clear drag transform in the same render (React 18 batches
+            // all synchronous state updates before the first await). Without this, setEventDrag(null)
+            // would remove the translateY and snap the event back before the server round trip.
+            setEvents(prev => prev.map(ev =>
+                ev.id === eventDrag.event.id
+                    ? { ...ev, start_time: newStart.toISOString(), end_time: newEnd.toISOString() }
+                    : ev
+            ));
+            setEventDrag(null);
+
             await fetch(`/api/calendar/${eventDrag.event.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -371,6 +386,8 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                 }),
             });
             await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+        } else {
+            setEventDrag(null);
         }
     };
 

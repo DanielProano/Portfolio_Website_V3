@@ -114,9 +114,11 @@ export default function Home() {
 
   return (
     <Container maxWidth={false} sx={{ py: 2, px: 0 }}>
-      <Stack direction="row" spacing={4}>
 
-        {/* ── Sidebar ── */}
+      {/* ── Top row: sidebar + slideshow ── */}
+      <Stack direction="row" spacing={4} sx={{ mb: 6 }}>
+
+        {/* Sidebar */}
         <Box
           sx={{
             flex: '0 0 clamp(200px, 22vw, 300px)',
@@ -125,8 +127,6 @@ export default function Home() {
             color: '#ffffff',
             padding: 3,
             borderRadius: 8,
-            position: 'sticky',
-            top: '40px',
             alignSelf: 'flex-start',
           }}
         >
@@ -215,167 +215,163 @@ export default function Home() {
           </Button>
         </Box>
 
-        {/* ── Right column: slideshow + project highlights ── */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        {/* Slideshow */}
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box
+            sx={{
+              position: 'relative',
+              borderRadius: 2,
+              overflow: 'hidden',
+              aspectRatio: '4/3',
+              width: '100%',
+              minHeight: { xs: '380px', md: '420px', lg: '300px' },
+              boxShadow: 3,
+            }}
+          >
+            <Image
+              src={projects[currentIndex].image}
+              alt={projects[currentIndex].title}
+              width={1025}
+              height={1025}
+              priority
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
 
-          {/* Slideshow */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 6 }}>
             <Box
+              onClick={handlePrev}
               sx={{
-                position: 'relative',
-                borderRadius: 2,
-                overflow: 'hidden',
-                aspectRatio: '4/3',
-                width: '100%',
-                minHeight: { xs: '380px', md: '420px', lg: '300px' },
-                boxShadow: 3,
+                position: 'absolute',
+                left: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                color: '#fff',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 1,
+                '&:hover': { backgroundColor: 'rgba(0,0,0,0.8)' },
               }}
             >
-              <Image
-                src={projects[currentIndex].image}
-                alt={projects[currentIndex].title}
-                width={1025}
-                height={1025}
-                priority
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-
-              <Box
-                onClick={handlePrev}
-                sx={{
-                  position: 'absolute',
-                  left: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                  color: '#fff',
-                  borderRadius: '50%',
-                  width: 36,
-                  height: 36,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 1,
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.8)' },
-                }}
-              >
-                ‹
-              </Box>
-
-              <Box
-                onClick={handleNext}
-                sx={{
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                  color: '#fff',
-                  borderRadius: '50%',
-                  width: 36,
-                  height: 36,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 1,
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.8)' },
-                }}
-              >
-                ›
-              </Box>
-
-              <Typography
-                variant="h6"
-                sx={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  background: 'rgba(0, 0, 0, 0.8)',
-                  color: '#fff',
-                  padding: 2,
-                  margin: 0,
-                  fontWeight: 'bold',
-                }}
-              >
-                {projects[currentIndex].title}
-              </Typography>
+              ‹
             </Box>
 
-            <Stack direction="row" spacing={1} justifyContent="center" sx={{ maxWidth: { xs: '100%', lg: '90%' } }}>
-              {projects.map((_, index) => (
-                <Box
-                  key={index}
-                  onClick={() => setCurrentIndex(index)}
-                  sx={{
-                    width: index === currentIndex ? 30 : 12,
-                    height: 12,
-                    borderRadius: index === currentIndex ? 1 : '50%',
-                    backgroundColor: index === currentIndex ? '#000' : '#ddd',
-                    cursor: 'pointer',
-                    transition: '0.3s',
-                    '&:hover': { backgroundColor: '#999' },
-                  }}
-                />
-              ))}
-            </Stack>
-          </Box>
+            <Box
+              onClick={handleNext}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                color: '#fff',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 1,
+                '&:hover': { backgroundColor: 'rgba(0,0,0,0.8)' },
+              }}
+            >
+              ›
+            </Box>
 
-          {/* Project highlights */}
-          <Box sx={{ py: 2 }}>
-            <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', mb: 4 }}>
-              Project Highlights
+            <Typography
+              variant="h6"
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: 'rgba(0, 0, 0, 0.8)',
+                color: '#fff',
+                padding: 2,
+                margin: 0,
+                fontWeight: 'bold',
+              }}
+            >
+              {projects[currentIndex].title}
             </Typography>
-
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr 1fr' },
-                gap: 3,
-              }}
-            >
-              {highlights.map((project, index) => (
-                <Box
-                  key={index}
-                  onClick={() => project.link && window.open(project.link, '_blank')}
-                  sx={{
-                    backgroundColor: '#1e2535',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                    cursor: project.link ? 'pointer' : 'default',
-                    transition: '0.2s',
-                    '&:hover': project.link
-                      ? { transform: 'translateY(-4px)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }
-                      : {},
-                  }}
-                >
-                  {project.image && (
-                    <Box sx={{ width: '100%', aspectRatio: '16/9', position: 'relative' }}>
-                      <Image
-                        src={project.image}
-                        alt={project.title}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                      />
-                    </Box>
-                  )}
-                  <Box sx={{ p: { xs: 2, lg: 3 } }}>
-                    <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold', mb: 1, fontSize: { xs: '0.85rem', md: '0.95rem', lg: '1.1rem' } }}>
-                      {project.title}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.6, fontSize: { xs: '0.7rem', md: '0.78rem', lg: '0.875rem' } }}>
-                      {project.description}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
           </Box>
 
+          <Stack direction="row" spacing={1} justifyContent="center" sx={{ maxWidth: { xs: '100%', lg: '90%' } }}>
+            {projects.map((_, index) => (
+              <Box
+                key={index}
+                onClick={() => setCurrentIndex(index)}
+                sx={{
+                  width: index === currentIndex ? 30 : 12,
+                  height: 12,
+                  borderRadius: index === currentIndex ? 1 : '50%',
+                  backgroundColor: index === currentIndex ? '#000' : '#ddd',
+                  cursor: 'pointer',
+                  transition: '0.3s',
+                  '&:hover': { backgroundColor: '#999' },
+                }}
+              />
+            ))}
+          </Stack>
         </Box>
       </Stack>
+
+      {/* ── Full-width: project highlights ── */}
+      <Box sx={{ py: 2 }}>
+        <Typography variant="h4" sx={{ color: '#fff', fontWeight: 'bold', mb: 4 }}>
+          Project Highlights
+        </Typography>
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr 1fr' },
+            gap: 3,
+          }}
+        >
+          {highlights.map((project, index) => (
+            <Box
+              key={index}
+              onClick={() => project.link && window.open(project.link, '_blank')}
+              sx={{
+                backgroundColor: '#1e2535',
+                borderRadius: 4,
+                overflow: 'hidden',
+                cursor: project.link ? 'pointer' : 'default',
+                transition: '0.2s',
+                '&:hover': project.link
+                  ? { transform: 'translateY(-4px)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }
+                  : {},
+              }}
+            >
+              {project.image && (
+                <Box sx={{ width: '100%', aspectRatio: '16/9', position: 'relative' }}>
+                  <Image
+                    src={project.image}
+                    alt={project.title}
+                    fill
+                    style={{ objectFit: 'cover' }}
+                  />
+                </Box>
+              )}
+              <Box sx={{ p: { xs: 2, lg: 3 } }}>
+                <Typography variant="h6" sx={{ color: '#fff', fontWeight: 'bold', mb: 1, fontSize: { xs: '0.85rem', md: '0.95rem', lg: '1.1rem' } }}>
+                  {project.title}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.6, fontSize: { xs: '0.7rem', md: '0.78rem', lg: '0.875rem' } }}>
+                  {project.description}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+
     </Container>
   );
 }
