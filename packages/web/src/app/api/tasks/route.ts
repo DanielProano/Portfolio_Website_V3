@@ -12,7 +12,10 @@ export async function GET() {
     try {
         const pool = getPool();
         const result = await pool.query(
-            `SELECT id, title, description, status, priority, due_date, due_time, created_at
+            `SELECT id, title, description, status, priority,
+              TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+              TO_CHAR(due_time, 'HH24:MI') AS due_time,
+              created_at
              FROM tasks WHERE user_id = $1 ORDER BY due_date ASC NULLS LAST, created_at DESC`,
             [userId]
         );
@@ -41,7 +44,10 @@ export async function POST(request: NextRequest) {
         const result = await pool.query(
             `INSERT INTO tasks (user_id, title, description, status, priority, due_date, due_time)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id, title, description, status, priority, due_date, due_time, created_at`,
+             RETURNING id, title, description, status, priority,
+              TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+              TO_CHAR(due_time, 'HH24:MI') AS due_time,
+              created_at`,
             [
                 userId,
                 title,

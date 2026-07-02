@@ -55,6 +55,7 @@ type EventDrag = {
     pointerStartY: number;
     isDragging: boolean;
     deltaY: number;
+    resizeEdge: 'top' | 'bottom' | null;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -330,7 +331,11 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         if (!isAdmin) return;
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
-        setEventDrag({ event, pointerStartY: e.clientY, isDragging: false, deltaY: 0 });
+        const rect = e.currentTarget.getBoundingClientRect();
+        const relY = e.clientY - rect.top;
+        const ZONE = 8;
+        const resizeEdge = relY <= ZONE ? 'top' as const : relY >= rect.height - ZONE ? 'bottom' as const : null;
+        setEventDrag({ event, pointerStartY: e.clientY, isDragging: false, deltaY: 0, resizeEdge });
     };
 
     const handleEventPointerMove = (e: React.PointerEvent) => {
@@ -343,13 +348,11 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         if (!eventDrag) return;
 
         if (!eventDrag.isDragging) {
-            // It was a tap/click, not a drag — just select the event
             setSelectedEvent(eventDrag.event);
             setEventDrag(null);
             return;
         }
 
-        // Mark that a drag just finished so the timeline's onClick doesn't open the create form
         dragJustEndedRef.current = true;
         setTimeout(() => { dragJustEndedRef.current = false; }, 100);
 
@@ -357,37 +360,61 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         const origStart = new Date(eventDrag.event.start_time);
         const origEnd = new Date(eventDrag.event.end_time);
         const duration = origEnd.getTime() - origStart.getTime();
-        const newStart = new Date(origStart.getTime() + deltaMinutes * 60 * 1000);
-        const newEnd = new Date(newStart.getTime() + duration);
-
         const dayMin = new Date(origStart); dayMin.setHours(DAY_START, 0, 0, 0);
         const dayMax = new Date(origStart); dayMax.setHours(DAY_END, 0, 0, 0);
 
-        if (newStart >= dayMin && newEnd <= dayMax) {
-            // Optimistic update + clear drag transform in the same render (React 18 batches
-            // all synchronous state updates before the first await). Without this, setEventDrag(null)
-            // would remove the translateY and snap the event back before the server round trip.
-            setEvents(prev => prev.map(ev =>
-                ev.id === eventDrag.event.id
-                    ? { ...ev, start_time: newStart.toISOString(), end_time: newEnd.toISOString() }
-                    : ev
-            ));
-            setEventDrag(null);
-
-            await fetch(`/api/calendar/${eventDrag.event.id}`, {
+        const putEvent = (start_time: string, end_time: string) =>
+            fetch(`/api/calendar/${eventDrag.event.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: eventDrag.event.title,
                     description: eventDrag.event.description,
-                    start_time: newStart.toISOString(),
-                    end_time: newEnd.toISOString(),
+                    start_time,
+                    end_time,
                     color: eventDrag.event.color,
                 }),
             });
-            await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+
+        if (eventDrag.resizeEdge === 'bottom') {
+            const newEnd = new Date(origEnd.getTime() + deltaMinutes * 60 * 1000);
+            if (newEnd > origStart && newEnd <= dayMax) {
+                setEvents(prev => prev.map(ev =>
+                    ev.id === eventDrag.event.id ? { ...ev, end_time: newEnd.toISOString() } : ev
+                ));
+                setEventDrag(null);
+                await putEvent(eventDrag.event.start_time, newEnd.toISOString());
+                await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+            } else {
+                setEventDrag(null);
+            }
+        } else if (eventDrag.resizeEdge === 'top') {
+            const newStart = new Date(origStart.getTime() + deltaMinutes * 60 * 1000);
+            if (newStart < origEnd && newStart >= dayMin) {
+                setEvents(prev => prev.map(ev =>
+                    ev.id === eventDrag.event.id ? { ...ev, start_time: newStart.toISOString() } : ev
+                ));
+                setEventDrag(null);
+                await putEvent(newStart.toISOString(), eventDrag.event.end_time);
+                await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+            } else {
+                setEventDrag(null);
+            }
         } else {
-            setEventDrag(null);
+            const newStart = new Date(origStart.getTime() + deltaMinutes * 60 * 1000);
+            const newEnd = new Date(newStart.getTime() + duration);
+            if (newStart >= dayMin && newEnd <= dayMax) {
+                setEvents(prev => prev.map(ev =>
+                    ev.id === eventDrag.event.id
+                        ? { ...ev, start_time: newStart.toISOString(), end_time: newEnd.toISOString() }
+                        : ev
+                ));
+                setEventDrag(null);
+                await putEvent(newStart.toISOString(), newEnd.toISOString());
+                await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+            } else {
+                setEventDrag(null);
+            }
         }
     };
 
@@ -551,6 +578,19 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         {/* Event blocks */}
                         {dayEvents.map(event => {
                             const isDraggingThis = eventDrag?.event.id === event.id && eventDrag.isDragging;
+                            const dragData = isDraggingThis ? eventDrag! : null;
+                            const isResizingBottom = dragData?.resizeEdge === 'bottom';
+                            const isResizingTop = dragData?.resizeEdge === 'top';
+                            const isMoving = isDraggingThis && dragData?.resizeEdge === null;
+                            const dy = dragData?.deltaY ?? 0;
+                            const baseTop = getEventTop(event);
+                            const baseHeight = getEventHeight(event);
+                            const visualTop = isResizingTop ? baseTop + dy : baseTop;
+                            const visualHeight = isResizingBottom
+                                ? Math.max(baseHeight + dy, HOUR_HEIGHT / 4)
+                                : isResizingTop
+                                    ? Math.max(baseHeight - dy, HOUR_HEIGHT / 4)
+                                    : baseHeight;
                             return (
                                 <Box
                                     key={event.id}
@@ -560,13 +600,12 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                     onPointerCancel={() => setEventDrag(null)}
                                     onClick={e => {
                                         e.stopPropagation();
-                                        // Non-admin: click directly selects. Admin: handled in onPointerUp.
                                         if (!isAdmin) setSelectedEvent(event);
                                     }}
                                     sx={{
                                         position: 'absolute',
-                                        top: `${getEventTop(event)}px`,
-                                        height: `${getEventHeight(event)}px`,
+                                        top: `${visualTop}px`,
+                                        height: `${visualHeight}px`,
                                         left: `${LABEL_WIDTH + 8}px`,
                                         right: '8px',
                                         backgroundColor: event.color,
@@ -575,8 +614,10 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                         overflow: 'hidden',
                                         boxSizing: 'border-box',
                                         userSelect: 'none',
-                                        cursor: isAdmin ? (isDraggingThis ? 'grabbing' : 'grab') : 'pointer',
-                                        transform: isDraggingThis ? `translateY(${eventDrag.deltaY}px)` : undefined,
+                                        cursor: isAdmin
+                                            ? (isMoving ? 'grabbing' : isDraggingThis ? 'ns-resize' : 'grab')
+                                            : 'pointer',
+                                        transform: isMoving ? `translateY(${dy}px)` : undefined,
                                         opacity: isDraggingThis ? 0.85 : 1,
                                         zIndex: isDraggingThis ? 10 : 1,
                                         outline: selectedEvent?.id === event.id ? '2px solid #fff' : 'none',
@@ -591,6 +632,24 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                     <Typography sx={{ fontSize: '0.68rem', color: '#1e253599' }}>
                                         {formatTime(event.start_time)} – {formatTime(event.end_time)}
                                     </Typography>
+                                    {isAdmin && (
+                                        <>
+                                            <Box sx={{
+                                                position: 'absolute', top: 0, left: 0, right: 0,
+                                                height: '8px', cursor: 'ns-resize',
+                                                display: 'flex', justifyContent: 'center', alignItems: 'flex-start', pt: '2px',
+                                            }}>
+                                                <Box sx={{ width: 20, height: 2, borderRadius: '1px', backgroundColor: 'rgba(0,0,0,0.3)' }} />
+                                            </Box>
+                                            <Box sx={{
+                                                position: 'absolute', bottom: 0, left: 0, right: 0,
+                                                height: '8px', cursor: 'ns-resize',
+                                                display: 'flex', justifyContent: 'center', alignItems: 'flex-end', pb: '2px',
+                                            }}>
+                                                <Box sx={{ width: 20, height: 2, borderRadius: '1px', backgroundColor: 'rgba(0,0,0,0.3)' }} />
+                                            </Box>
+                                        </>
+                                    )}
                                 </Box>
                             );
                         })}
