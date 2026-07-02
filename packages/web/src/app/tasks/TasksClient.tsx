@@ -63,7 +63,8 @@ function emptyForm(): FormData {
 
 function formatDueDate(due_date: string | null, due_time: string | null): string | null {
     if (!due_date) return null;
-    const d = new Date(`${due_date}T12:00:00Z`);
+    const [y, mo, dy] = due_date.split('-').map(Number);
+    const d = new Date(y, mo - 1, dy);
     const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     if (!due_time) return dateStr;
     const [h, m] = due_time.split(':').map(Number);
@@ -131,19 +132,21 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
             due_date: formData.due_date || null,
             due_time: formData.due_time || null,
         };
+        let res: Response;
         if (editingId !== null) {
-            await fetch(`/api/tasks/${editingId}`, {
+            res = await fetch(`/api/tasks/${editingId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
         } else {
-            await fetch('/api/tasks', {
+            res = await fetch('/api/tasks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
         }
+        if (!res.ok) return;
         setFormOpen(false);
         await fetchTasks();
     };
