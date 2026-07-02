@@ -114,15 +114,16 @@ export default function Home() {
 
   return (
     <Container maxWidth={false} sx={{ py: 2, px: 0 }}>
-      <Stack direction="row" spacing={6}>
+      <Stack direction="row" spacing={4}>
 
         {/* ── Sidebar ── */}
         <Box
           sx={{
-            flex: '0 0 240px',
+            flex: '0 0 clamp(160px, 16vw, 220px)',
+            minWidth: 'clamp(160px, 16vw, 220px)',
             backgroundColor: '#1e2535',
             color: '#ffffff',
-            padding: 4,
+            padding: 3,
             borderRadius: 8,
             position: 'sticky',
             top: '40px',

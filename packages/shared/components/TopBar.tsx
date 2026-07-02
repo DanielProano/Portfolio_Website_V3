@@ -9,9 +9,11 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 const navButtonStyle = {
     color: '#f0e8e8',
-    fontSize: { xs: '0.6rem', sm: '1rem', md: '1.3rem' },
+    fontSize: { xs: '0.6rem', sm: '0.85rem', md: '1.3rem' },
     textTransform: 'none',
-    '&:hover': { 
+    minWidth: 0,
+    px: { xs: 0.5, sm: 1, md: 1.5 },
+    '&:hover': {
         color: '#64b5f6',
         transition: 'color 0.3s'
     }
@@ -19,24 +21,17 @@ const navButtonStyle = {
 
 const dropDownStyle = {
     color: '#f0e8e8',
-    fontSize: { xs: '0.6rem', sm: '1rem', md: '1.3rem' },
+    fontSize: { xs: '0.6rem', sm: '0.85rem', md: '1.3rem' },
+    minWidth: 0,
     textTransform: 'none',
-    '&:hover': { 
+    '&:hover': {
         color: '#64b5f6',
         transition: 'color 0.3s'
     },
-    '& .MuiInput-underline:before': {
-        display: 'none',
-    },
-    '& .MuiInput-underline:after': {
-        display: 'none',
-    },
-    '& .MuiOutlinedInput-notchedOutline': {
-        border: 'none',
-    },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-        border: 'none',
-    },
+    '& .MuiInput-underline:before': { display: 'none' },
+    '& .MuiInput-underline:after': { display: 'none' },
+    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 'none' },
     '& .MuiSelect-select': {
         fontStyle: 'normal',
         padding: '0',
@@ -86,11 +81,17 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
             transform: isVisible ? 'translateY(0)' : 'translateY(-100%)', 
             transition: 'transform 0.3s ease-out',
         }}>
-            <Toolbar sx={{ py: 1.5 }}>
-                <Typography 
-                    variant="h6" 
-                    sx={{ 
-                        fontWeight: 'bold', 
+            <Toolbar sx={{
+                py: 1.5,
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)',
+                alignItems: 'center',
+            }}>
+                {/* Column 1: Brand */}
+                <Typography
+                    variant="h6"
+                    sx={{
+                        fontWeight: 'bold',
                         fontSize: { xs: '0.6rem', sm: '1.2rem', md: '2rem' },
                         letterSpacing: 1,
                     }}
@@ -98,37 +99,21 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                     Danny Proano
                 </Typography>
 
-                <Box 
-                    sx={{ display: 'flex', gap: 1, ml: 'auto', mr: 'auto'}}
-                >
-                    <Button 
-                        sx={navButtonStyle} 
-                        onClick={() => {
-                            router.push('/');
-                            setSelectedOption('');
-                        }}
+                {/* Column 2: Nav — always centered */}
+                <Box sx={{ display: 'flex', gap: { xs: 0, sm: 1 } }}>
+                    <Button
+                        sx={navButtonStyle}
+                        onClick={() => { router.push('/'); setSelectedOption(''); }}
                     >
                         Home
                     </Button>
-                    
-                    {/* <Select 
-                        value={selectedOption}
-                        onChange={handleSelectChange}
-                        displayEmpty
-                        sx={dropDownStyle}
-                        renderValue={() => 'Research'}
-                        open={openAboutMenu}
-                        onOpen={() => setOpenAboutMenu(true)}
-                        onClose={() => setOpenAboutMenu(false)}
+
+                    <Button
+                        sx={navButtonStyle}
+                        onClick={() => { router.push('/research'); setSelectedOption(''); }}
                     >
-                        <MenuItem value="research">How To Build a Racecar</MenuItem>
-                        <MenuItem value="research">Reverse Engineering w/ Frida</MenuItem>
-                        <MenuItem value="research">Computer Vision for Racecars</MenuItem>
-                        <MenuItem value="research">AI Computer Vision for Drones</MenuItem>
-                        <MenuItem value="research">Zero Knowledge Architecture</MenuItem>
-                        <MenuItem value="research">Automated Logistics</MenuItem>
-                        <MenuItem value="research">How the Enigma Machine Works</MenuItem>
-                    </Select> */}
+                        Research
+                    </Button>
 
                     <Select
                         value={selectedOption}
@@ -147,44 +132,46 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                     </Select>
                 </Box>
 
-                <Button
-                    component="a"
-                    href="/resume.pdf"
-                    download
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                        color: '#90b4e8',
-                        borderColor: '#3d5280',
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        fontSize: { xs: '0.6rem', sm: '0.8rem', md: '0.95rem' },
-                        '&:hover': { borderColor: '#90b4e8', backgroundColor: '#2d3f5e' },
-                    }}
-                >
-                    Resume
-                </Button>
+                {/* Column 3: Actions — right-aligned */}
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: { xs: 0, sm: 1, md: 2 } }}>
+                    <Button
+                        component="a"
+                        href="/resume.pdf"
+                        download
+                        variant="outlined"
+                        size="small"
+                        sx={{
+                            color: '#90b4e8',
+                            borderColor: '#3d5280',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: { xs: '0.5rem', sm: '0.8rem', md: '0.95rem' },
+                            px: { xs: 0.5, sm: 1, md: 2 },
+                            '&:hover': { borderColor: '#90b4e8', backgroundColor: '#2d3f5e' },
+                        }}
+                    >
+                        Resume
+                    </Button>
 
-                <Box sx={{ display: 'flex', gap: 2, ml: 3}}>
-                    <IconButton 
-                        href="https://github.com/DanielProano" 
+                    <IconButton
+                        href="https://github.com/DanielProano"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={iconStyle}
+                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 } }}
                     >
-                        <GitHubIcon />
+                        <GitHubIcon fontSize="small" />
                     </IconButton>
-                    <IconButton 
+                    <IconButton
                         href="https://www.linkedin.com/in/daniel-proano-20976b32a/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={iconStyle}
+                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 } }}
                     >
-                        <LinkedInIcon />
+                        <LinkedInIcon fontSize="small" />
                     </IconButton>
                     {authButton ?? (
-                        <IconButton href="/auth/login" sx={iconStyle}>
-                            <AccountCircleIcon />
+                        <IconButton href="/auth/login" sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 } }}>
+                            <AccountCircleIcon fontSize="small" />
                         </IconButton>
                     )}
                 </Box>

@@ -1,0 +1,58 @@
+---
+title: "Firefly: A Real-Time OS for the STM32F4"
+date: "2025-02-10"
+description: "Designing a preemptive real-time operating system from scratch on the ARM Cortex-M4, with a priority-based scheduler, mutexes, semaphores, and task queues."
+tags: ["embedded", "RTOS", "C", "ARM", "STM32"]
+---
+
+Firefly is a bare-metal real-time operating system I wrote for the STM32F4 microcontroller. No FreeRTOS, no HAL — just direct register access, a linker script, and a scheduler written in C.
+
+## Why Write an RTOS?
+
+Understanding a system means being able to build it. I'd used FreeRTOS and Zephyr in prior projects but didn't have a mental model of how context switching actually works at the hardware level. Writing Firefly answered that.
+
+## Architecture
+
+### Scheduler
+
+Firefly uses a preemptive, priority-based round-robin scheduler. The SysTick timer fires every 1 ms. In the handler, the scheduler compares the current task's priority against all ready tasks. If a higher-priority task is ready, a PendSV interrupt is triggered to perform the context switch.
+
+PendSV is where the actual switch happens. It saves the current task's registers (R4–R11 plus the EXC_RETURN value for FPU-aware switching) onto the task's stack, updates the current task pointer, then restores the new task's registers.
+
+```c
+void PendSV_Handler(void) {
+    __asm volatile (
+        "MRS R0, PSP          \n"
+        "STMDB R0!, {R4-R11}  \n"
+        "BL scheduler_switch  \n"
+        "LDMIA R0!, {R4-R11}  \n"
+        "MSR PSP, R0          \n"
+        "BX LR                \n"
+    );
+}
+```
+
+### Synchronization Primitives
+
+**Mutex** — A binary semaphore with priority inheritance. When a high-priority task blocks on a mutex held by a low-priority task, the low-priority task temporarily inherits the higher priority to prevent priority inversion.
+
+**Counting Semaphore** — Standard P/V operations. Tasks block on `sem_wait()` and are woken by `sem_post()` via a wait queue ordered by priority.
+
+**Task Queue** — A fixed-size ring buffer with blocking push/pop for inter-task message passing without dynamic allocation.
+
+## Memory Model
+
+Firefly uses a fully static memory model. Task stacks are statically allocated arrays — no heap, no `malloc`. Stack sizes are declared at task creation:
+
+```c
+TASK_DEFINE(blink_task, 512);    // 512-byte stack
+TASK_DEFINE(sensor_task, 1024);  // 1024-byte stack
+```
+
+Static allocation eliminates fragmentation and makes stack overflow detection trivial: a canary value at the bottom of each stack is checked on every scheduler tick. If it's been overwritten, the system halts with a fault.
+
+## What I Learned
+
+The hardest part was not the scheduler — it was startup. Understanding the ARM Cortex-M4 exception model, setting up the vector table, initializing `.data` and zeroing `.bss` in the reset handler, and getting the linker script right to place stacks in CCMRAM took more iteration than the context switcher itself.
+
+If you want to understand embedded systems at a deep level, write a scheduler. You cannot hand-wave the hardware when you are directly manipulating the PSP register in assembly.
