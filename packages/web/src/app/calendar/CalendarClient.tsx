@@ -60,7 +60,6 @@ type EventDrag = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const HOUR_HEIGHT = 64;
 const DAY_START = 6;
 const DAY_END = 23;
 const LABEL_WIDTH = 56;
@@ -102,17 +101,17 @@ function getMonthCells(year: number, month: number): (number | null)[] {
     ];
 }
 
-function getEventTop(event: CalendarEvent): number {
+function getEventTop(event: CalendarEvent, hourHeight: number): number {
     const start = new Date(event.start_time);
-    return (start.getHours() + start.getMinutes() / 60 - DAY_START) * HOUR_HEIGHT;
+    return (start.getHours() + start.getMinutes() / 60 - DAY_START) * hourHeight;
 }
 
-function getEventHeight(event: CalendarEvent): number {
+function getEventHeight(event: CalendarEvent, hourHeight: number): number {
     const start = new Date(event.start_time);
     const end = new Date(event.end_time);
     const startDec = start.getHours() + start.getMinutes() / 60;
     const endDec = end.getHours() + end.getMinutes() / 60;
-    return Math.max((endDec - startDec) * HOUR_HEIGHT - 2, 22);
+    return Math.max((endDec - startDec) * hourHeight - 2, 20);
 }
 
 function emptyForm(date: Date, startH = 9, startM = 0): FormData {
@@ -143,8 +142,14 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const [formPos, setFormPos] = useState({ x: 200, y: 150 });
     const [eventDrag, setEventDrag] = useState<EventDrag | null>(null);
     const [taskCreatedId, setTaskCreatedId] = useState<number | null>(null);
+    const [quickNotes, setQuickNotes] = useState('');
+    const [hourHeight, setHourHeight] = useState(44);
+    const [dragDropDay, setDragDropDay] = useState<Date | null>(null);
 
     const timelineScrollRef = useRef<HTMLDivElement>(null);
+    const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const selectedEventRef = useRef<CalendarEvent | null>(null);
+    const quickEditsRef = useRef<{ notes: string; eventId: number } | null>(null);
     const formDragRef = useRef<{ startPX: number; startPY: number; origX: number; origY: number } | null>(null);
     // Prevents timeline click from firing a create-form open right after a drag ends
     const dragJustEndedRef = useRef(false);
@@ -165,6 +170,34 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     useEffect(() => {
         fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
     }, [viewMonth, fetchEvents]);
+
+    // Keep ref in sync so debounced saves always use the latest event data
+    useEffect(() => { selectedEventRef.current = selectedEvent; }, [selectedEvent]);
+
+    // Reset quick-edit notes when switching to a different event (not on every re-render)
+    useEffect(() => {
+        if (selectedEvent) {
+            setQuickNotes(selectedEvent.description ?? '');
+            quickEditsRef.current = { notes: selectedEvent.description ?? '', eventId: selectedEvent.id };
+        } else {
+            quickEditsRef.current = null;
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedEvent?.id]);
+
+    // Fit all hours into the container with no scrolling
+    useEffect(() => {
+        const el = timelineScrollRef.current;
+        if (!el) return;
+        const update = () => {
+            const h = el.clientHeight;
+            if (h > 0) setHourHeight(Math.max(28, Math.floor(h / (DAY_END - DAY_START))));
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
 
     const dayEvents = events.filter(e => isSameDay(new Date(e.start_time), selectedDay));
 
@@ -187,7 +220,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         const relY = e.clientY - rect.top + timelineScrollRef.current.scrollTop;
 
         // Snap to nearest 15-minute slot
-        const rawMinutes = (relY / HOUR_HEIGHT) * 60;
+        const rawMinutes = (relY / hourHeight) * 60;
         const snappedMinutes = Math.round(rawMinutes / 15) * 15;
         const hour = Math.floor(snappedMinutes / 60) + DAY_START;
         const minute = snappedMinutes % 60;
@@ -205,6 +238,33 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
 
     // ── Admin CRUD ──
 
+    const handleNotesChange = (value: string) => {
+        setQuickNotes(value);
+        if (quickEditsRef.current) quickEditsRef.current.notes = value;
+        const id = selectedEventRef.current?.id;
+        if (id) {
+            setEvents(prev => prev.map(e => e.id === id ? { ...e, description: value } : e));
+            setSelectedEvent(prev => prev ? { ...prev, description: value } : null);
+        }
+        if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+        saveDebounceRef.current = setTimeout(async () => {
+            const ev = selectedEventRef.current;
+            const q = quickEditsRef.current;
+            if (!ev || !q || q.eventId !== ev.id) return;
+            await fetch(`/api/calendar/${ev.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: ev.title,
+                    description: q.notes,
+                    start_time: ev.start_time,
+                    end_time: ev.end_time,
+                    color: ev.color,
+                }),
+            });
+        }, 800);
+    };
+
     const openEdit = (event: CalendarEvent) => {
         const start = new Date(event.start_time);
         const end = new Date(event.end_time);
@@ -220,7 +280,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         // Position form near the timeline, vertically near the event
         if (timelineScrollRef.current) {
             const rect = timelineScrollRef.current.getBoundingClientRect();
-            const eventTopViewport = rect.top + getEventTop(event) - timelineScrollRef.current.scrollTop;
+            const eventTopViewport = rect.top + getEventTop(event, hourHeight) - timelineScrollRef.current.scrollTop;
             const formX = Math.min(rect.right + 12, window.innerWidth - 404);
             const formY = Math.min(Math.max(8, eventTopViewport - 32), window.innerHeight - 520);
             setFormPos({ x: Math.max(8, formX), y: formY });
@@ -342,6 +402,19 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         if (!eventDrag) return;
         const deltaY = e.clientY - eventDrag.pointerStartY;
         setEventDrag(prev => prev ? { ...prev, deltaY, isDragging: prev.isDragging || Math.abs(deltaY) > 6 } : null);
+
+        // Detect when the pointer is hovering over a month-grid day cell (cross-day drop)
+        if (eventDrag.resizeEdge === null) {
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            const dropEl = el ? el.closest('[data-drop-date]') : null;
+            const dateStr = dropEl?.getAttribute('data-drop-date') ?? null;
+            if (dateStr) {
+                const [y, mo, d] = dateStr.split('-').map(Number);
+                setDragDropDay(new Date(y, mo - 1, d));
+            } else {
+                setDragDropDay(null);
+            }
+        }
     };
 
     const handleEventPointerUp = async (e: React.PointerEvent) => {
@@ -350,13 +423,46 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
         if (!eventDrag.isDragging) {
             setSelectedEvent(eventDrag.event);
             setEventDrag(null);
+            setDragDropDay(null);
             return;
         }
 
         dragJustEndedRef.current = true;
         setTimeout(() => { dragJustEndedRef.current = false; }, 100);
 
-        const deltaMinutes = Math.round((eventDrag.deltaY / HOUR_HEIGHT) * 60 / 15) * 15;
+        // Cross-day drop: move event to the hovered month-grid day at 12pm
+        if (dragDropDay && eventDrag.resizeEdge === null) {
+            const origStart = new Date(eventDrag.event.start_time);
+            const origEnd = new Date(eventDrag.event.end_time);
+            const duration = origEnd.getTime() - origStart.getTime();
+            const newStart = new Date(dragDropDay.getFullYear(), dragDropDay.getMonth(), dragDropDay.getDate(), 12, 0, 0);
+            const newEnd = new Date(newStart.getTime() + duration);
+            setEvents(prev => prev.map(ev =>
+                ev.id === eventDrag.event.id
+                    ? { ...ev, start_time: newStart.toISOString(), end_time: newEnd.toISOString() }
+                    : ev
+            ));
+            setSelectedDay(dragDropDay);
+            setDragDropDay(null);
+            setEventDrag(null);
+            await fetch(`/api/calendar/${eventDrag.event.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: eventDrag.event.title,
+                    description: eventDrag.event.description,
+                    start_time: newStart.toISOString(),
+                    end_time: newEnd.toISOString(),
+                    color: eventDrag.event.color,
+                }),
+            });
+            await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+            return;
+        }
+
+        setDragDropDay(null);
+
+        const deltaMinutes = Math.round((eventDrag.deltaY / hourHeight) * 60 / 15) * 15;
         const origStart = new Date(eventDrag.event.start_time);
         const origEnd = new Date(eventDrag.event.end_time);
         const duration = origEnd.getTime() - origStart.getTime();
@@ -468,15 +574,18 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         const cellDate = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), day);
                         const isToday = isSameDay(cellDate, today);
                         const isSelected = isSameDay(cellDate, selectedDay);
+                        const isDropTarget = !!dragDropDay && isSameDay(dragDropDay, cellDate);
                         const hasEvents = events.some(e => isSameDay(new Date(e.start_time), cellDate));
                         const hasTasks = tasks.some(t => {
                             const [y, mo, d] = (t.due_date as string).split('-').map(Number);
                             return isSameDay(new Date(y, mo - 1, d), cellDate);
                         });
+                        const dateAttr = `${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         return (
                             <Box
                                 key={day}
                                 onClick={() => handleDayClick(day)}
+                                data-drop-date={dateAttr}
                                 sx={{
                                     aspectRatio: '1',
                                     display: 'flex',
@@ -484,11 +593,11 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     borderRadius: '50%',
-                                    cursor: 'pointer',
+                                    cursor: isDropTarget ? 'copy' : 'pointer',
                                     position: 'relative',
-                                    backgroundColor: isSelected ? '#64b5f6' : 'transparent',
-                                    border: isToday && !isSelected ? '1px solid #64b5f6' : 'none',
-                                    '&:hover': { backgroundColor: isSelected ? '#64b5f6' : '#3d4b66' },
+                                    backgroundColor: isSelected ? '#64b5f6' : isDropTarget ? 'rgba(129,199,132,0.35)' : 'transparent',
+                                    border: isDropTarget ? '2px solid #81c784' : isToday && !isSelected ? '1px solid #64b5f6' : 'none',
+                                    '&:hover': { backgroundColor: isSelected ? '#64b5f6' : isDropTarget ? 'rgba(129,199,132,0.45)' : '#3d4b66' },
                                     transition: 'background-color 0.15s',
                                 }}
                             >
@@ -539,13 +648,13 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                     ref={timelineScrollRef}
                     onClick={handleTimelineClick}
                     sx={{
-                        flex: '0 0 58%',
-                        overflowY: 'auto',
+                        flex: '0 0 62%',
+                        overflow: 'hidden',
                         position: 'relative',
                         cursor: isAdmin ? 'crosshair' : 'default',
                     }}
                 >
-                    <Box sx={{ position: 'relative', height: `${(DAY_END - DAY_START) * HOUR_HEIGHT}px` }}>
+                    <Box sx={{ position: 'relative', height: `${(DAY_END - DAY_START) * hourHeight}px` }}>
 
                         {/* Hour rows */}
                         {hours.map(h => (
@@ -553,9 +662,9 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 key={h}
                                 sx={{
                                     position: 'absolute',
-                                    top: `${(h - DAY_START) * HOUR_HEIGHT}px`,
+                                    top: `${(h - DAY_START) * hourHeight}px`,
                                     left: 0, right: 0,
-                                    height: `${HOUR_HEIGHT}px`,
+                                    height: `${hourHeight}px`,
                                     borderTop: '1px solid #2d3748',
                                     display: 'flex',
                                     alignItems: 'flex-start',
@@ -583,21 +692,22 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                             const isResizingTop = dragData?.resizeEdge === 'top';
                             const isMoving = isDraggingThis && dragData?.resizeEdge === null;
                             const dy = dragData?.deltaY ?? 0;
-                            const baseTop = getEventTop(event);
-                            const baseHeight = getEventHeight(event);
+                            const baseTop = getEventTop(event, hourHeight);
+                            const baseHeight = getEventHeight(event, hourHeight);
                             const visualTop = isResizingTop ? baseTop + dy : baseTop;
                             const visualHeight = isResizingBottom
-                                ? Math.max(baseHeight + dy, HOUR_HEIGHT / 4)
+                                ? Math.max(baseHeight + dy, hourHeight / 4)
                                 : isResizingTop
-                                    ? Math.max(baseHeight - dy, HOUR_HEIGHT / 4)
+                                    ? Math.max(baseHeight - dy, hourHeight / 4)
                                     : baseHeight;
+                            const showNotesPanel = isAdmin && selectedEvent?.id === event.id && !isDraggingThis;
                             return (
                                 <Box
                                     key={event.id}
                                     onPointerDown={e => handleEventPointerDown(e, event)}
                                     onPointerMove={handleEventPointerMove}
                                     onPointerUp={handleEventPointerUp}
-                                    onPointerCancel={() => setEventDrag(null)}
+                                    onPointerCancel={() => { setEventDrag(null); setDragDropDay(null); }}
                                     onClick={e => {
                                         e.stopPropagation();
                                         if (!isAdmin) setSelectedEvent(event);
@@ -632,6 +742,49 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                     <Typography sx={{ fontSize: '0.68rem', color: '#1e253599' }}>
                                         {formatTime(event.start_time)} – {formatTime(event.end_time)}
                                     </Typography>
+                                    {visualHeight > 54 && (event.description || showNotesPanel) && (
+                                        <Box
+                                            sx={{ position: 'absolute', top: '30px', left: '4px', right: '4px', bottom: '10px', zIndex: 2, overflow: 'hidden' }}
+                                            onPointerDown={showNotesPanel ? e => e.stopPropagation() : undefined}
+                                            onClick={showNotesPanel ? e => e.stopPropagation() : undefined}
+                                        >
+                                            {showNotesPanel ? (
+                                                <textarea
+                                                    value={quickNotes}
+                                                    onChange={e => handleNotesChange(e.target.value)}
+                                                    placeholder="Notes..."
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        outline: 'none',
+                                                        color: '#1e2535',
+                                                        fontSize: '0.65rem',
+                                                        resize: 'none',
+                                                        fontFamily: 'inherit',
+                                                        padding: '2px 4px',
+                                                        boxSizing: 'border-box',
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Typography sx={{
+                                                    fontSize: '0.65rem',
+                                                    color: 'rgba(30,37,53,0.72)',
+                                                    lineHeight: 1.35,
+                                                    px: '4px',
+                                                    pt: '2px',
+                                                    overflow: 'hidden',
+                                                    display: '-webkit-box',
+                                                    WebkitBoxOrient: 'vertical',
+                                                    WebkitLineClamp: Math.max(1, Math.floor((visualHeight - 36) / 11)),
+                                                    pointerEvents: 'none',
+                                                }}>
+                                                    {event.description}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    )}
                                     {isAdmin && (
                                         <>
                                             <Box sx={{
@@ -663,7 +816,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                             })
                             .map(task => {
                                 const [h, m] = task.due_time!.split(':').map(Number);
-                                const topPx = (h + m / 60 - DAY_START) * HOUR_HEIGHT;
+                                const topPx = (h + m / 60 - DAY_START) * hourHeight;
                                 const color = TASK_PRIORITY_COLORS[task.priority];
                                 const isDone = task.status === 'done';
                                 return (
@@ -754,19 +907,30 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 {formatTime(selectedEvent.start_time)} – {formatTime(selectedEvent.end_time)}
                             </Typography>
 
-                            {isAdmin && selectedEvent.description ? (
-                                <Typography sx={{ color: '#d0ccc8', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>
-                                    {selectedEvent.description}
-                                </Typography>
+                            {isAdmin ? (
+                                <TextField
+                                    multiline
+                                    fullWidth
+                                    minRows={2}
+                                    placeholder="Notes..."
+                                    value={quickNotes}
+                                    onChange={e => handleNotesChange(e.target.value)}
+                                    size="small"
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            color: '#d0ccc8',
+                                            fontSize: '0.9rem',
+                                            '& fieldset': { borderColor: '#3d4b66' },
+                                            '&:hover fieldset': { borderColor: '#4a5568' },
+                                            '&.Mui-focused fieldset': { borderColor: '#64b5f6' },
+                                        },
+                                    }}
+                                />
                             ) : !isAdmin ? (
                                 <Typography sx={{ color: '#718096', fontSize: '0.85rem', fontStyle: 'italic' }}>
                                     Sign in to view details.
                                 </Typography>
-                            ) : (
-                                <Typography sx={{ color: '#718096', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                                    No notes for this event.
-                                </Typography>
-                            )}
+                            ) : null}
                         </>
                     ) : (
                         <Typography sx={{ color: '#4a5568', fontSize: '0.9rem', fontStyle: 'italic' }}>
