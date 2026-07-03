@@ -122,7 +122,26 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const posts = getAllPosts();
   const post = posts.find((p) => p.slug === params.slug);
   if (!post) return {};
-  return { title: `${post.title} | Daniel Proano`, description: post.description };
+  const url = `https://dannyproano.com/research/${post.slug}`;
+  return {
+    title: `${post.title} | Daniel Proano`,
+    description: post.description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: post.title,
+      description: post.description,
+      url,
+      type: 'article',
+      publishedTime: post.date,
+      authors: ['Daniel Proano'],
+      tags: post.tags,
+    },
+    twitter: {
+      card: 'summary',
+      title: post.title,
+      description: post.description,
+    },
+  };
 }
 
 export default async function ResearchPostPage({ params }: { params: { slug: string } }) {
@@ -132,8 +151,20 @@ export default async function ResearchPostPage({ params }: { params: { slug: str
 
   const { meta, content } = getPost(params.slug);
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: meta.title,
+    description: meta.description,
+    datePublished: meta.date,
+    author: { '@type': 'Person', name: 'Daniel Proano', url: 'https://dannyproano.com' },
+    url: `https://dannyproano.com/research/${meta.slug}`,
+    keywords: meta.tags.join(', '),
+  };
+
   return (
     <Box sx={{ maxWidth: '720px', py: 3, pr: { xs: 2, md: 4 } }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* Article header */}
       <Box sx={{ mb: 4 }}>
         <Typography
