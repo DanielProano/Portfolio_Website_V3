@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { getAllPosts, getPost } from '@/lib/research';
@@ -181,17 +180,6 @@ export default async function ResearchPostPage({ params }: { params: { slug: str
             day: 'numeric',
           })}
         </Typography>
-
-        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
-          {meta.tags.map((tag) => (
-            <Chip
-              key={tag}
-              label={tag}
-              size="small"
-              sx={{ backgroundColor: '#2d3f5e', color: '#90b4e8', fontSize: '0.7rem' }}
-            />
-          ))}
-        </Box>
 
         <Typography variant="body1" sx={{ color: '#aaa', fontStyle: 'italic', lineHeight: 1.7 }}>
           {meta.description}
