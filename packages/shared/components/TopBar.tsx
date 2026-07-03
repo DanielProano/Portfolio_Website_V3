@@ -127,8 +127,21 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                     >
                         <MenuItem value="chess/board">Chess</MenuItem>
                         <MenuItem value="password/login">Password Manager</MenuItem>
+                    </Select>
+
+                    <Select
+                        value={selectedOption}
+                        onChange={handleSelectChange}
+                        displayEmpty
+                        sx={dropDownStyle}
+                        renderValue={() => 'Features'}
+                        open={openAboutMenu}
+                        onOpen={() => setOpenAboutMenu(true)}
+                        onClose={() => setOpenAboutMenu(false)}
+                    >
                         <MenuItem value="calendar">Calendar</MenuItem>
                         <MenuItem value="tasks">Tasks</MenuItem>
+                        <MenuItem value="flashcards">Flashcards</MenuItem>
                     </Select>
                 </Box>
 
@@ -157,7 +170,7 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                         href="https://github.com/DanielProano"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 } }}
+                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
                     >
                         <GitHubIcon fontSize="small" />
                     </IconButton>
@@ -165,7 +178,7 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                         href="https://www.linkedin.com/in/daniel-proano-20976b32a/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 } }}
+                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
                     >
                         <LinkedInIcon fontSize="small" />
                     </IconButton>
