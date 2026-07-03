@@ -116,21 +116,23 @@ export default function Home() {
     <Container maxWidth={false} sx={{ py: 2, px: 0 }}>
 
       {/* ── Top row: sidebar + slideshow ── */}
-      <Stack direction="row" spacing={4} sx={{ mb: 6 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mb: 6 }}>
 
         {/* Sidebar */}
         <Box
           sx={{
-            flex: '0 0 clamp(200px, 22vw, 300px)',
-            minWidth: 'clamp(200px, 22vw, 300px)',
-            backgroundColor: '#1e2535',
+            flex: { md: '0 0 clamp(200px, 22vw, 300px)' },
+            width: { xs: '100%', md: 'auto' },
+            minWidth: { md: 'clamp(200px, 22vw, 300px)' },
+            backgroundColor: '#2a3550',
+            border: '1px solid #3a4d6b',
             color: '#ffffff',
             padding: 3,
             borderRadius: 8,
             alignSelf: 'flex-start',
           }}
         >
-          <Box sx={{ mb: 2, borderRadius: 1, aspectRatio: '1' }}>
+          <Box sx={{ mb: 2, borderRadius: 1, aspectRatio: '1', maxHeight: { xs: 260, md: 'none' }, overflow: 'hidden' }}>
             <Image
               src="/profile/self_autonomous.jpg"
               alt="Profile"

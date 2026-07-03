@@ -57,6 +57,28 @@ function initSchema(pool: Pool) {
         .catch(() => {});
 
     pool.query(`
+        CREATE TABLE IF NOT EXISTS flashcard_folders (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            color TEXT DEFAULT '#4a6fa5',
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `).catch(err => console.error('[db] flashcard_folders table error:', err));
+
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS flashcards (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            folder_id INTEGER REFERENCES flashcard_folders(id) ON DELETE CASCADE,
+            front_text TEXT NOT NULL DEFAULT '',
+            back_text TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `).catch(err => console.error('[db] flashcards table error:', err));
+
+    pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
