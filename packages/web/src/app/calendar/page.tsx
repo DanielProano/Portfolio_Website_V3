@@ -1,5 +1,4 @@
 import dynamic from 'next/dynamic';
-import { redirect } from 'next/navigation';
 import { getSessionSafe } from '@/lib/auth0';
 
 const CalendarClient = dynamic(
@@ -9,9 +8,5 @@ const CalendarClient = dynamic(
 
 export default async function CalendarPage() {
     const session = await getSessionSafe();
-    if (!session?.user?.sub) {
-        redirect('/');
-    }
-
-    return <CalendarClient isAdmin={true} />;
+    return <CalendarClient isAdmin={!!session?.user?.sub} />;
 }

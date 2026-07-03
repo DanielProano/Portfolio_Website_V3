@@ -14,7 +14,7 @@ interface EditState { id: number | null; front: string; back: string; }
 const FOLDER_COLORS = ['#4a6fa5', '#5c8a5c', '#8a5c5c', '#7c5c8a', '#5c8a8a', '#8a7a4a'];
 const SWIPE_THRESHOLD = 100;
 
-export function FlashcardsClient() {
+export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
     const [allCards, setAllCards] = useState<Card[]>([]);
@@ -42,11 +42,12 @@ export function FlashcardsClient() {
     const folderSavingRef = useRef(false);
 
     useEffect(() => {
+        if (!isAdmin) return;
         fetch('/api/flashcards/folders')
             .then(r => r.json())
             .then(d => setFolders(d.folders ?? []))
             .catch(console.error);
-    }, []);
+    }, [isAdmin]);
 
     const startSession = useCallback((cards: Card[]) => {
         const shuffled = [...cards].sort(() => Math.random() - 0.5);
@@ -357,18 +358,20 @@ export function FlashcardsClient() {
                         <Typography sx={{ fontSize: '0.8rem', color: '#ddd', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {folder.name}
                         </Typography>
-                        <IconButton
-                            className="del"
-                            onClick={e => deleteFolder(folder.id, e)}
-                            size="small"
-                            sx={{ opacity: 0, color: '#888', p: 0.25, '&:hover': { color: '#ff5252' }, transition: '0.15s' }}
-                        >
-                            <DeleteIcon sx={{ fontSize: 13 }} />
-                        </IconButton>
+                        {isAdmin && (
+                            <IconButton
+                                className="del"
+                                onClick={e => deleteFolder(folder.id, e)}
+                                size="small"
+                                sx={{ opacity: 0, color: '#888', p: 0.25, '&:hover': { color: '#ff5252' }, transition: '0.15s' }}
+                            >
+                                <DeleteIcon sx={{ fontSize: 13 }} />
+                            </IconButton>
+                        )}
                     </Box>
                 ))}
 
-                {addingFolder ? (
+                {isAdmin && (addingFolder ? (
                     <TextField
                         autoFocus
                         value={newFolderName}
@@ -400,7 +403,7 @@ export function FlashcardsClient() {
                     >
                         Add Folder
                     </Button>
-                )}
+                ))}
             </Box>
 
             {/* ── Main area ── */}
@@ -416,20 +419,35 @@ export function FlashcardsClient() {
 
                 {!selectedFolderId ? (
                     <Box sx={{ textAlign: 'center', color: '#555' }}>
-                        <Typography variant="h6" sx={{ mb: 1, color: '#888' }}>Select a folder to start</Typography>
-                        <Typography variant="body2">or create one on the left</Typography>
+                        {isAdmin ? (
+                            <>
+                                <Typography variant="h6" sx={{ mb: 1, color: '#888' }}>Select a folder to start</Typography>
+                                <Typography variant="body2">or create one on the left</Typography>
+                            </>
+                        ) : (
+                            <>
+                                <Typography variant="h6" sx={{ mb: 1, color: '#888' }}>Flashcards</Typography>
+                                <Typography variant="body2" sx={{ mb: 2 }}>Sign in to create folders and study your own flashcards.</Typography>
+                                <Button component="a" href="/auth/login" variant="outlined"
+                                    sx={{ color: '#90b4e8', borderColor: '#3d5280', textTransform: 'none', '&:hover': { borderColor: '#90b4e8', bgcolor: '#1e2d46' } }}>
+                                    Sign In
+                                </Button>
+                            </>
+                        )}
                     </Box>
 
                 ) : studyDeck.length === 0 && !editingCard ? (
                     <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" sx={{ mb: 2, color: '#888' }}>No cards in this folder yet</Typography>
-                        <Button
-                            variant="outlined"
-                            onClick={startNewCard}
-                            sx={{ color: '#90b4e8', borderColor: '#3d5280', textTransform: 'none', '&:hover': { borderColor: '#90b4e8', bgcolor: '#1e2d46' } }}
-                        >
-                            + Create First Card
-                        </Button>
+                        {isAdmin && (
+                            <Button
+                                variant="outlined"
+                                onClick={startNewCard}
+                                sx={{ color: '#90b4e8', borderColor: '#3d5280', textTransform: 'none', '&:hover': { borderColor: '#90b4e8', bgcolor: '#1e2d46' } }}
+                            >
+                                + Create First Card
+                            </Button>
+                        )}
                     </Box>
 
                 ) : sessionDone ? (
@@ -490,11 +508,13 @@ export function FlashcardsClient() {
                                     </>
                                 ) : (
                                     <>
-                                        <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />}
-                                            onClick={startNewCard}
-                                            sx={{ color: '#90b4e8', fontSize: '0.75rem', textTransform: 'none', '&:hover': { bgcolor: '#1e2d46' } }}>
-                                            New Card
-                                        </Button>
+                                        {isAdmin && (
+                                            <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />}
+                                                onClick={startNewCard}
+                                                sx={{ color: '#90b4e8', fontSize: '0.75rem', textTransform: 'none', '&:hover': { bgcolor: '#1e2d46' } }}>
+                                                New Card
+                                            </Button>
+                                        )}
                                         <Tooltip title="Restart session">
                                             <IconButton size="small" onClick={() => startSession(allCards)}
                                                 sx={{ color: '#555', '&:hover': { color: '#90b4e8' } }}>
@@ -568,13 +588,12 @@ export function FlashcardsClient() {
                                                     {currentCard?.front_text || <span style={{ color: '#555' }}>(empty)</span>}
                                                 </Typography>
                                             )}
-                                            {!editingCard && currentCard && (
-                                                <Box sx={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 0.25, opacity: 0, '&:hover': { opacity: 1 }, transition: '0.2s' }}
-                                                    className="card-actions">
-                                                    <IconButton size="small" onClick={e => startEditCard(currentCard, e)} sx={{ color: '#90b4e8', p: 0.4 }}>
+                                            {isAdmin && !editingCard && currentCard && (
+                                                <Box sx={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 0.25 }}>
+                                                    <IconButton size="small" onClick={e => startEditCard(currentCard, e)} sx={{ color: '#90b4e8', p: 0.4, opacity: 0.5, '&:hover': { opacity: 1 } }}>
                                                         <EditIcon sx={{ fontSize: 14 }} />
                                                     </IconButton>
-                                                    <IconButton size="small" onClick={e => deleteCard(currentCard.id, e)} sx={{ color: '#ff5252', p: 0.4 }}>
+                                                    <IconButton size="small" onClick={e => deleteCard(currentCard.id, e)} sx={{ color: '#ff5252', p: 0.4, opacity: 0.5, '&:hover': { opacity: 1 } }}>
                                                         <DeleteIcon sx={{ fontSize: 14 }} />
                                                     </IconButton>
                                                 </Box>
