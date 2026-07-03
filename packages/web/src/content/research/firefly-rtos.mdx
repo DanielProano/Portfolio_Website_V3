@@ -1,11 +1,13 @@
 ---
-title: "Firefly: A Real-Time OS for the STM32F4"
-date: "2025-02-10"
-description: "Designing a preemptive real-time operating system from scratch on the ARM Cortex-M4, with a priority-based scheduler, mutexes, semaphores, and task queues."
-tags: ["embedded", "RTOS", "C", "ARM", "STM32"]
+title: "How to Make a Real-Time OS for the STM32F4"
+date: "2026-07-03"
+description: "A technical guide that details how to design and implement a working RTOS!"
 ---
 
-Firefly is a bare-metal real-time operating system I wrote for the STM32F4 microcontroller. No FreeRTOS, no HAL — just direct register access, a linker script, and a scheduler written in C.
+Firefly is a bare-metal real-time operating system I wrote for 
+the STM32F401CCU8 microcontroller. I implemented everything from
+the linker script to the HAL to the queue & mutex data structures 
+from scratch, with only the CMSIS register files as my foundation.
 
 ## Why Write an RTOS?
 
