@@ -1,5 +1,4 @@
 import dynamic from 'next/dynamic';
-import { redirect } from 'next/navigation';
 import { getSessionSafe } from '@/lib/auth0';
 
 const FlashcardsClient = dynamic(
@@ -9,6 +8,5 @@ const FlashcardsClient = dynamic(
 
 export default async function FlashcardsPage() {
     const session = await getSessionSafe();
-    if (!session?.user?.sub) redirect('/');
-    return <FlashcardsClient />;
+    return <FlashcardsClient isAdmin={!!session?.user?.sub} />;
 }
