@@ -113,6 +113,16 @@ function getEventHeight(event: CalendarEvent, hourHeight: number): number {
     return Math.max((endDec - startDec) * hourHeight - 2, 20);
 }
 
+function formatUpcomingDate(iso: string): string {
+    const d = new Date(iso);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    if (isSameDay(d, now)) return `Today · ${formatTime(iso)}`;
+    if (isSameDay(d, tomorrow)) return `Tomorrow · ${formatTime(iso)}`;
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + formatTime(iso);
+}
+
 function emptyForm(date: Date, startH = 9, startM = 0): FormData {
     const endH = Math.min(startH + 1, DAY_END - 1);
     return {
@@ -492,6 +502,12 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const cells = getMonthCells(viewMonth.getFullYear(), viewMonth.getMonth());
     const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
 
+    const now = new Date();
+    const upcomingEvents = events
+        .filter(e => new Date(e.start_time) >= now)
+        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+        .slice(0, 5);
+
     // ─── Render ───────────────────────────────────────────────────────────────
 
     return (
@@ -531,7 +547,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                     ))}
                 </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', flexShrink: 0 }}>
                     {cells.map((day, i) => {
                         if (!day) return <Box key={`empty-${i}`} />;
                         const cellDate = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), day);
@@ -585,6 +601,50 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                             </Box>
                         );
                     })}
+                </Box>
+                {/* Upcoming Events */}
+                <Box sx={{ mt: 2, flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                    <Typography sx={{ fontSize: '0.68rem', color: '#718096', fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: 'uppercase' }}>
+                        Upcoming
+                    </Typography>
+                    {upcomingEvents.length === 0 ? (
+                        <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                            No upcoming events this month
+                        </Typography>
+                    ) : (
+                        upcomingEvents.map(event => (
+                            <Box
+                                key={event.id}
+                                onClick={() => {
+                                    const d = new Date(event.start_time);
+                                    setSelectedDay(d);
+                                    setSelectedEvent(event);
+                                }}
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 1,
+                                    py: 0.6,
+                                    px: 0.75,
+                                    mb: 0.25,
+                                    borderRadius: 1.5,
+                                    cursor: 'pointer',
+                                    '&:hover': { backgroundColor: '#252f42' },
+                                    transition: 'background-color 0.15s',
+                                }}
+                            >
+                                <Box sx={{ width: 3, minHeight: 32, borderRadius: '2px', backgroundColor: event.color, flexShrink: 0, mt: '2px' }} />
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: '0.78rem', color: '#f0e8e8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {event.title}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: '0.68rem', color: '#718096' }}>
+                                        {formatUpcomingDate(event.start_time)}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        ))
+                    )}
                 </Box>
             </Box>
 
