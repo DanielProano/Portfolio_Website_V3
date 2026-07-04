@@ -154,12 +154,13 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                         variant="outlined"
                         size="small"
                         sx={{
+                            display: { xs: 'none', sm: 'inline-flex' },
                             color: '#90b4e8',
                             borderColor: '#3d5280',
                             textTransform: 'none',
                             fontWeight: 600,
-                            fontSize: { xs: '0.5rem', sm: '0.8rem', md: '0.95rem' },
-                            px: { xs: 0.5, sm: 1, md: 2 },
+                            fontSize: { sm: '0.8rem', md: '0.95rem' },
+                            px: { sm: 1, md: 2 },
                             '&:hover': { borderColor: '#90b4e8', backgroundColor: '#2d3f5e' },
                         }}
                     >
@@ -170,7 +171,7 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                         href="https://github.com/DanielProano"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
+                        sx={{ ...iconStyle, p: { md: 1 }, display: { xs: 'none', sm: 'none', md: 'inline-flex' } }}
                     >
                         <GitHubIcon fontSize="small" />
                     </IconButton>
@@ -178,7 +179,7 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                         href="https://www.linkedin.com/in/daniel-proano-20976b32a/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ ...iconStyle, p: { xs: 0.25, sm: 0.75, md: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
+                        sx={{ ...iconStyle, p: { md: 1 }, display: { xs: 'none', sm: 'none', md: 'inline-flex' } }}
                     >
                         <LinkedInIcon fontSize="small" />
                     </IconButton>

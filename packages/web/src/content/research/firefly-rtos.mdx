@@ -1,60 +1,641 @@
 ---
-title: "How to Make a Real-Time OS for the STM32F4"
+title: "How to Make a Real-Time Operating System"
 date: "2026-07-03"
-description: "A technical guide that details how to design and implement a working RTOS!"
+description: "A technical guide that details how to implement a RTOS for the STM32F4 Cortex-M family!"
 ---
 
-Firefly is a bare-metal real-time operating system I wrote for 
-the STM32F401CCU8 microcontroller. I implemented everything from
-the linker script to the HAL to the queue & mutex data structures 
-from scratch, with only the CMSIS register files as my foundation.
+![](/projects/RTOS/stm32.jpeg)
 
-## Why Write an RTOS?
+Firefly is a bare-metal real-time operating system
+I wrote for the STM32F401CCU6 microcontroller. I 
+implemented everything from scratch, from the linker 
+script to the HAL to the queue & mutex data structures, with only the CMSIS register files 
+as my foundation.
 
-Understanding a system means being able to build it. I'd used FreeRTOS and Zephyr in prior projects but didn't have a mental model of how context switching actually works at the hardware level. Writing Firefly answered that.
+## What is a Operating System?
 
-## Architecture
+An operating system is a piece of code that lives
+between the hardware and application space. 
 
-### Scheduler
+![Abstraction of OS levels](/projects/RTOS/OS_levels.svg)
 
-Firefly uses a preemptive, priority-based round-robin scheduler. The SysTick timer fires every 1 ms. In the handler, the scheduler compares the current task's priority against all ready tasks. If a higher-priority task is ready, a PendSV interrupt is triggered to perform the context switch.
+In a regular windows computer, the OS manages the 
+hardware and resources, providing an inteface to 
+network, disk, and CPU. For example, it provides 
+the ability for a filesystem program to create
+and manage different files.
 
-PendSV is where the actual switch happens. It saves the current task's registers (R4–R11 plus the EXC_RETURN value for FPU-aware switching) onto the task's stack, updates the current task pointer, then restores the new task's registers.
+### What is a Real Time OS then?
+
+A real-time operating system is a low level 
+implementation of the above specifications. It
+provides the guarantee that a specific event at 
+a moment in time will be handled deterministically.
+
+In other words, it allows me to handle data in time
+constrained environments and control the current
+executing task!
+
+## Why do I need an RTOS?
+
+This summer, I am building an autonomous drone!
+Instead of paying $90 for a 
+flight controller, I am using an STM32 alongside
+custom, hand-made flight software to fly the drone.
+
+![My 3D printed Autonomous Drone Frame](/projects/RTOS/drone1.jpeg)
+
+With this comes the need to have logic that 
+individually controls the drones 4 motors and 
+to update them quickly. But my STM32 only has one 
+processor, meaning it can only execute one instruction
+at a time. Unlike a regular computer, it cannot 
+execute multiple instructions at the same time.
+
+<VideoFigure src="/projects/RTOS/drone_printing.mov" caption="3D printing the drone frame" controls />
+
+So the trick is to make the one processor
+***look*** like it does. It achieves this by 
+saving the "context" of the task (all the current
+values in the registers) into memory before quickly 
+switching to another task, loading its context before
+continuing on.
+
+This architecture enables me to write motor logic 
+without concern for context switching, ensuring
+application level logic is isolated!
+
+## File Structure 
+
+***Disclaimer***: I had help from Claude 
+in generating a professional file structure.
+I don't know what I don't know sometimes and I 
+find that AI is helpful in finding a direction,
+but I DID NOT use it to generate code in this project.
+
+```bash
+󱧼 build
+ cmake
+     stm32_toolchain.cmake
+ config
+     rtos_config.h
+ docs
+ examples
+     blinky
+     rtos_demo
+     CMakeLists.txt
+ include
+     rtos.h
+󰣞 src
+     hal
+     kernel
+     linker
+     port
+     startup
+ tests
+     integration
+     unit
+ tools
+     flash.sh
+     setup.sh
+ CMakeLists.txt
+ LICENSE
+󰂺 README.md
+```
+
+Here, CMakeLists.txt at the root servers
+as our guidelines for the entire build 
+configuration and is what allows us to compile
+code on an x86 laptop for an ARM based microcontroller.
+
+The rest of the files are fairly self explanatory.
+
+## Primer: The Compilation process
+
+Before we write a RTOS, we need to blink the light
+on the microcontroller to demonstrate we have control.
+And before we can blink the light, we need to be able 
+to compile source code from out laptop to a binary file 
+compatible with our STM32.
+
+![GCC compilation process](/projects/RTOS/gcc.svg)
+
+The C programming language is genuinely a magical
+language, and its compilation process through
+the [GCC](https://en.wikipedia.org/wiki/GNU_Compiler_Collection) 
+compiler collection is equally as elegant and magical.
+
+First, GCC takes a source file like ***main.c***
+as input. C files import libraries through "include"
+statements. For example, consider this source file:
 
 ```c
-void PendSV_Handler(void) {
-    __asm volatile (
-        "MRS R0, PSP          \n"
-        "STMDB R0!, {R4-R11}  \n"
-        "BL scheduler_switch  \n"
-        "LDMIA R0!, {R4-R11}  \n"
-        "MSR PSP, R0          \n"
-        "BX LR                \n"
-    );
+#include <stdlib.h>
+
+void main(void) {
+
+    /*  malloc is used to allocate bytes of memory!
+        Here we are allocating 16 bytes */
+
+    int *pointer_to_memory = malloc(16);
+
+    /* Do smth with memory, for example, store stuff */
+
+    *pointer_to_memory = 5;
+
+    /*  We need to let the computer know 
+        we are done with the memory */
+
+    free(pointer_to_memory);
 }
 ```
 
-### Synchronization Primitives
+The library stdlib allows us to use malloc. Now,
+GCC compilation will take this C file and produce:
 
-**Mutex** — A binary semaphore with priority inheritance. When a high-priority task blocks on a mutex held by a low-priority task, the low-priority task temporarily inherits the higher priority to prevent priority inversion.
+```c 
 
-**Counting Semaphore** — Standard P/V operations. Tasks block on `sem_wait()` and are woken by `sem_post()` via a wait queue ordered by priority.
+/*  Replace #include ... with a 
+    ton of declarations ... */
 
-**Task Queue** — A fixed-size ring buffer with blocking push/pop for inter-task message passing without dynamic allocation.
+/* Eventually malloc & free are declared: */
 
-## Memory Model
+extern void *malloc (size_t __size) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__malloc__))
+     __attribute__ ((__alloc_size__ (1))) ;
 
-Firefly uses a fully static memory model. Task stacks are statically allocated arrays — no heap, no `malloc`. Stack sizes are declared at task creation:
+extern void free (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 
-```c
-TASK_DEFINE(blink_task, 512);    // 512-byte stack
-TASK_DEFINE(sensor_task, 1024);  // 1024-byte stack
+/* Normal program, comments removed */
+
+void main(void) {
+    int *pointer_to_memory = malloc(16);
+    *pointer_to_memory = 5;
+    free(pointer_to_memory);
+}
 ```
 
-Static allocation eliminates fragmentation and makes stack overflow detection trivial: a canary value at the bottom of each stack is checked on every scheduler tick. If it's been overwritten, the system halts with a fault.
+Now GCC will compile from C into assembly.
+Fun fact, compilation is done in one pass,
+which is why in C you must declare a
+function exists before you use it!
 
-## What I Learned
+```asm 
+	.file	"main.c"
+	.text
+	.globl	main
+	.type	main, @function
+main:
+.LFB6:
+	.cfi_startproc
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$16, %rsp
+	movl	$16, %edi
+	call	malloc@PLT
+	movq	%rax, -8(%rbp)
+	movq	-8(%rbp), %rax
+	movl	$5, (%rax)
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
+	call	free@PLT
+	nop
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE6:
+	.size	main, .-main
+	.ident	"GCC: (GNU) 16.1.1 20260430"
+	.section	.note.GNU-stack,"",@progbits
+```
 
-The hardest part was not the scheduler — it was startup. Understanding the ARM Cortex-M4 exception model, setting up the vector table, initializing `.data` and zeroing `.bss` in the reset handler, and getting the linker script right to place stacks in CCMRAM took more iteration than the context switcher itself.
+I will save explaining this assembly for another time.
+For now, just know that assembly instructions 
+are the lowest level computer instructions that exist.
+The assembler maps each instruction to a sequence
+of 1s and 0s, eventually producing an Object file.
 
-If you want to understand embedded systems at a deep level, write a scheduler. You cannot hand-wave the hardware when you are directly manipulating the PSP register in assembly.
+This Object (binary) file still contains ***undefined***
+references. In this case, "call malloc@PLT" is still
+***calling*** a function that, at least as far as it
+can see, does not exist yet.
+
+So finally, the linker comes through and resolves
+these undefined references, pulling from static
+libraries these definitions and replacing them.
+
+The result is an ELF (for windows an exe) file.
+This is not human readable:
+
+```
+ELF>P@�6@8@@@@H���pp��   ���-�=�=PX�-�=�=����$$0!0!0!@p!p!p!  S�td0!0!0!@P�td   
+$$T�td� � � �Q�tdR�td�-�O k z 
+"freemalloc__libc_start_main__cxa_finalizelibc.so.6GLIBC_2.34GLIBC_
+2.2.5_ITM_deregisterTMCloneTable__gmon_start___ITM_registerTMCloneTable.���8ui
+C�@��@�?�?�?�?�?@��H�H��/H��t��H���5�/�%�/@�%�/h������%�/h��
+�����1�I��^H��H���PTE1�1�H�=��K/�f.�H�=�/H��/H9�tH�./H��t       
+�����H�=i/H�5b/H)�H��H��?H��H�H��tH�H�=/��.�c�����.]�f.��@ff.����g�
+��UH��H��������H�E�H�E��H�E�H�����������H�H�� ���TL���<E���|zRx
+                                        ���&D$4����0FJ
+j �?;*3$"\����/A�C
+��� 0\�������
+\������� l�������&
+
+
+               0GNU����GNU@�.
+x�����o���
+�
+ �?0@�  ������oP���o���o<���o�=6F@GCC: (GNU) 16.1.1 20260430��      p! ��
+                     �!
+                       �4
+                         �J @V�=}
+                                 @��=�������� ����=� ��?�
+xP@] l@y ��(@V
+              P&� @�
+                    I/� @� �"�
+Scrt1.o__abi_tagcrtbeginS.oderegister_tm_clones_
+_do_global_dtors_auxcompleted.0__do_global_dtors_aux_fini_
+array_entryframe_dummy__frame_dummy_init_array_entrymain.
+ccrtendS.o__FRAME_END___DYNAMIC__GNU_EH_FRAME_HDR_GLOBAL
+_OFFSET_TABLE_free@GLIBC_2.2.5__libc_start_main@GLIBC_2.34_ITM_
+deregisterTMCloneTable_edata_fini__data_start__gmon_start__
+__dso_handle_IO_stdin_usedmalloc@GLIBC_2.2.5_end__bss_startmain_
+_TMC_END___ITM_registerTMCloneTable__cxa_finalize@GLIBC_2.2.5_init
+.symtab.strtab.shstrtab.note.gnu.build-id.interp.gnu.hash.dynsym.
+dynstr.gnu.version.gnu.version_r.rela.dyn.rela.plt.init.text.fini.
+rodata.eh_frame_hdr.eh_frame.sframe.note.gnu.property.note.ABI-tag.
+init_array.fini_array.dynamic.got.got.plt.data.bss.comment�$.��6���o�@
+�  �  $�( ( ����o� � �0!0!�p!p! ������=�-��?��?�/(
+ @ 0 00x�3��5
+ ```
+
+ This file can now be executed on the target system!
+
+ ## Intro: The Linker File 
+
+ Now that you understand the compilation process,
+ its time to go deeper. Remember that linker phase
+ in the compilation process? Well the linker can't 
+ do its job if it doesn't know the layout of memory. 
+ The linker ***needs*** to know where you want to 
+ place addresses, how large the stack should be, 
+ and how your code should be organized in memory.
+
+ This means, before we can get to writing this linker 
+ file, we need to know about...
+
+ ### Primer: Basic ELF Memory Map
+
+ ***ELF*** (Executable and Link Format) is GCC/UNIX
+ specific, with Windows having a similar but different
+ memory layout.
+
+Please take this with many, many grains of salt, but
+in general, the memory layout or memory map looks like
+this:
+
+![ELF Memory Map](/projects/RTOS/memory_map.svg)
+
+.text, .bss, & .data all tend to be near the start 
+of memory (0x00000000) in memory maps. The stack, which 
+is used for static memory allocations, usually lives 
+near the very end of memory (0xFFFFFFFF). The stack 
+grows downwards!
+
+So each time you do a:
+
+```c 
+int some_variable = 5;
+```
+
+in C, you are assigning a memory location in the 
+stack memory space to 5. ***some_variable*** just 
+represents that memory address where 5 lives.
+
+In contrast, the heap grows upward. So every 
+dynamic memory allocation like:
+
+```c 
+int *pointer = malloc(16);
+``` 
+
+is just adding 16 bytes for you to use 
+in the heap memory space!
+
+For exact, detailed information, [this](https://gist.github.com/x0nu11byt3/bcb35c3de461e5fb66173071a2379779)
+is a great resource! But only if you are curious! It
+is only necessary to have a general idea of memory 
+to continue!
+
+### Back to Linker File
+
+We will be writing our linker file in a file 
+called 'stm32f401.ld' under src/linker! Let's 
+start with the first requirement: defining 
+memory addresses!
+
+For this, you need two things:
+
+1.  A handy 900 page technical doc. called the 
+    reference manual! You can find the 
+    stm32f401xB/C/D/E doc [here](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
+
+2.  You now need to navigate & find the Memory 
+    mapping table, here page 42 of the reference 
+    manual.
+
+Microcontrollers have designated sections of memory
+for your use. We have two sections who addresses
+we are concerned with: sram & flash. 
+
+***Flash*** is a region of memory which allows 
+the persistance of instructions even when power 
+is off. It works by trapping electrons in tiny, 
+microscopic cells! When we eventually 'flash' 
+our code to the STM32, we will actually be 
+overwritting this memory section.
+
+***sram*** is a region of memory that is volatile. 
+That is, sram uses power to actively hold data. 
+Why might we use it over non-volatile memory such 
+as flash? It's ***fast***. Incredibly fast!
+
+So, using our docs, lets tell the linker 
+at what memory address & what length these 
+memory sections exist at!
+
+```
+MEMORY 
+{ 
+    flash (RX) : ORIGIN = 0x08000000, LENGTH = 64K 
+    sram  (RW) : ORIGIN = 0x20000000, LENGTH = 64K
+}
+``` 
+
+We also need to configure permissions! Flash 
+should not be something that code normally overwrites. 
+There are several reasons, but one of them is 
+that hardware does not have the ability to 
+reset just one byte in flash. Instead, because 
+flash memory actually is naturally 1s instead 
+of 0s on reset, flash must be reset in entire sections 
+at a time. So, lets just give flash the ability 
+to be read and pulled in for execution.
+
+SRAM, on the other hand, is volatile memory 
+and can be read & written at any time! SRAM is 
+not execute for several reasons. The first is 
+reliability. If an error happens and the stack 
+is corrupted, ensuring that garabage cannot be 
+executed is critical. The other is security. 
+In this project, instructions live in flash 
+while data lives in sram. There is no 
+need for sram to ever be able to execute anything!
+
+### Linker: SECTIONS 
+
+Before we get to that, we can define 
+some information.
+
+```
+ENTRY(Reset_Handler)
+```
+
+This tells the linker that the Reset Handler 
+function will be the place where instructions 
+are executed. However, on Cortex M architecture, 
+the harware will always read 0x00000000 first and 
+we are going to be placing Reset Handler there 
+anyway.
+
+However, it does provide some benefit. The linker 
+will try to remove unreferenced variables. Because 
+Reset Handler lives at 0x00000000 and won't be 
+called by anything, the linker ***will*** try to 
+remove it. By defining the entry point, we can 
+avoid that.
+
+Next, we need to configure the size of our stack:
+
+```
+_min_stack_size = 0x800
+```
+
+In this case, I choose 2K bytes. 
+
+Now the good stuff:
+
+```
+SECTIONS
+{
+    .isr_vector : ALIGN(4) 
+    {
+        _vector_start = .;
+        KEEP(*(.isr_vector))
+        . = ALIGN(4);
+        _vector_end = .;
+    } > flash
+
+    .text : ALIGN(4)
+    {
+        _text_start = .;
+        *(.text)
+        *(.text*)
+        _text_ro_start = .;
+        *(.rodata)
+        *(.rodata*)
+        . = ALIGN(4);
+        _text_end = .;
+    } > flash
+
+    .data : ALIGN(4)
+    {
+        _data_start = .;
+        *(.data)
+        *(.data*)
+        . = ALIGN(4);
+        _data_end = .;
+    } > sram AT > flash
+
+    _data_flash_start = LOADADDR(.data);
+
+    .bss : ALIGN(4) 
+    {
+        _bss_start = .;
+        *(.bss)
+        *(.bss*)
+        *(COMMON)
+        . = ALIGN(4);
+        _bss_end = .;
+    } > sram
+
+    end = .;
+
+    ._stack : ALIGN(8) 
+    {
+        _stack_start = .;
+        . = . + _min_stack_size;
+        . = ALIGN(8);
+        _stack_top = .;
+    } > sram
+}
+```
+
+SECTIONS is where we define the layout 
+of flash memory itself. It is here where we tell 
+the linker what data belongs where.
+
+### Vector Table
+
+According to the [Programming Manual](https://www.st.com/content/ccc/resource/technical/document/programming_manual/6c/3a/cb/e7/e4/ea/44/9b/DM00046982.pdf/files/DM00046982.pdf/jcr:content/translations/en.DM00046982.pdf)
+for the Cortex M4, on page 40, section 2.3.4,
+the architecture expects the vector table to live
+at 0x00000000 (which in the context of flash, is
+0x08000000). 
+
+```
+.isr_vector : ALIGN(4) 
+{
+       
+} > flash
+```
+
+So we will define .isr_vector (our vector table 
+function we will define later). In the linker script, 
+we need to tell the script what memory to use, which 
+in this case should be flash. 
+
+### Syntax 
+
+In linker file, ***.*** is used to specify the 
+current address we exist at. For our convenience 
+and ease of use later, we will define the start 
+and end addresses of each section. 
+
+```
+_vector_start = .;
+... 
+_vector_end = .;
+```
+
+KEEP is again used to ensure that the isr_vector 
+section is not taken out by the linker. In the 
+meantime, the syntax:
+
+```
+*(.isr_vector)
+```
+
+This means that from every object file, extract the 
+.isr_vector and place them there in memory. If we 
+wanted more fine grained control, we could specify 
+an object file:
+
+```
+task.o(.isr_vector)
+```
+
+This will extract the .isr_vector from the task object file.
+
+### Alignment 
+
+We then ensure the end address is on a multiple of 4:
+
+```
+. = ALIGN(4);
+``` 
+
+Next, we will worry about the .text section. 
+Here, I have placed .rodata inside the .text 
+section, but it could have just as easily been 
+placed outside in its own thing. .rodata 
+is used to hold read-only data, such as 
+constant globals and string literals.
+
+Last few things to note, on page 231, section 
+4.4.7 of the [Reference Manual](https://www.st.com/content/ccc/resource/technical/document/programming_manual/6c/3a/cb/e7/e4/ea/44/9b/DM00046982.pdf/files/DM00046982.pdf/jcr:content/translations/en.DM00046982.pdf),
+we have the Configuration and Control Register. 
+Here, it is shown that the reset value defaults 
+to 0x00000200, which is 512 in decimal value.
+Take the log: 
+
+log<sub>2</sub>(512) = 9
+
+Thus, the default value is therefore to have 9-th bit
+set, which according to the docs, means that the 
+stack defaults to 8 byte aligned. 
+
+When we define the stack, we must ensure that 
+it cooperates!
+
+### Defensive Coding for Legacy requirements
+
+Note, that in .bss, I included *(COMMON). I won't 
+dive too much into it, but basically COMMON is 
+a legacy section that compilers don't generate 
+anymore but is included as defensive coding!
+
+### SRAM & Flash to the Linker
+
+```
+_data_flash_start = LOADADDR(.data);
+```
+
+The above defintion is absolutely necessary! 
+Previously, we defined things like 
+_data_start and _data_end. Note the . tracks 
+the current addresses on whichever section we 
+specify.
+
+So when we specified that data should be written to 
+flash with "> flash", then the period represents
+flash memory addresses and vice versa.
+
+Because we can only flash to flash memory, later in
+startup script, we will manually copy the data and 
+bss sections into sram. Therefore, the . represents 
+sram addresses but we ***need*** to know where 
+in flash .data begins. So we use LOADADDR as 
+a way to store the location in flash of the beginning 
+of .data for the copy.
+
+### Special handling of .data placement 
+
+Notice that _stack and _bss use "> sram" 
+while .data does "> sram AT > flash".
+
+Why is that?
+
+Well, this is because .data is special! .bss 
+holds uninitialized global variables, meaning 
+that they are all zeroed out. _stack also contains 
+no values yet, it is just reserving space right now 
+for the stack.
+
+.data is different, because we ***have*** values 
+that need to be assigned. The data section holds 
+initialized globals. So, we need to do two things. 
+We need to tell the linker we are storing the values 
+in flash: "AT > flash". And we need to tell the linker 
+that we are going to be using them in sram: "> sram".
+
+Note the syntax is exactly: 
+
+```
+> VMA AT > LMA
+```
+
+Where VMA is virtual memory address and 
+LMA is the moad memory addresses. It will not 
+work if you do:
+
+``` 
+AT > flash > sram 
+```
+
+This conclues what you need to know for the linker script!
+
+## Startup Script 

@@ -7,7 +7,7 @@ export default async function ResearchLayout({ children }: { children: ReactNode
   const posts = getAllPosts();
 
   return (
-    <Box sx={{ maxWidth: '1400px', mx: 'auto', display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, py: 2, alignItems: 'flex-start' }}>
+    <Box sx={{ maxWidth: '1400px', mx: 'auto', display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, py: 2, px: { xs: 1.5, md: 3 }, alignItems: 'flex-start' }}>
       <Box
         sx={{
           flex: { xs: '0 0 auto', md: '0 0 clamp(220px, 20vw, 320px)' },
@@ -24,7 +24,7 @@ export default async function ResearchLayout({ children }: { children: ReactNode
         <ResearchNav posts={posts} />
       </Box>
 
-      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', width: '100%' }}>
+      <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
         {children}
       </Box>
     </Box>
