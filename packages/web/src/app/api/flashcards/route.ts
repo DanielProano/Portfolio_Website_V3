@@ -25,6 +25,12 @@ export async function POST(request: NextRequest) {
     if (!folder_id) return NextResponse.json({ error: 'folder_id required' }, { status: 400 });
 
     const pool = getPool();
+    const ownerCheck = await pool.query(
+        'SELECT id FROM flashcard_folders WHERE id=$1 AND user_id=$2',
+        [folder_id, session.user.sub]
+    );
+    if (ownerCheck.rows.length === 0) return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+
     const result = await pool.query(
         `INSERT INTO flashcards (user_id, folder_id, front_text, back_text)
          VALUES ($1, $2, $3, $4)
