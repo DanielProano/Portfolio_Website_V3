@@ -590,10 +590,10 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
                                             )}
                                             {isAdmin && !editingCard && currentCard && (
                                                 <Box sx={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 0.25 }}>
-                                                    <IconButton size="small" onClick={e => startEditCard(currentCard, e)} sx={{ color: '#90b4e8', p: 0.4, opacity: 0.5, '&:hover': { opacity: 1 } }}>
+                                                    <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={e => startEditCard(currentCard, e)} sx={{ color: '#90b4e8', p: 0.4, opacity: 0.5, '&:hover': { opacity: 1 } }}>
                                                         <EditIcon sx={{ fontSize: 14 }} />
                                                     </IconButton>
-                                                    <IconButton size="small" onClick={e => deleteCard(currentCard.id, e)} sx={{ color: '#ff5252', p: 0.4, opacity: 0.5, '&:hover': { opacity: 1 } }}>
+                                                    <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={e => deleteCard(currentCard.id, e)} sx={{ color: '#ff5252', p: 0.4, opacity: 0.5, '&:hover': { opacity: 1 } }}>
                                                         <DeleteIcon sx={{ fontSize: 14 }} />
                                                     </IconButton>
                                                 </Box>
