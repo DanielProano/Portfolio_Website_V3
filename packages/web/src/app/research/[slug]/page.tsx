@@ -96,6 +96,159 @@ const mdxComponents = {
     </Box>
   ),
   hr: () => <Divider sx={{ my: 3, borderColor: '#2d3f5e' }} />,
+  img: ({ src, alt }: { src?: string; alt?: string }) => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 3, gap: 1 }}>
+      <Box
+        component="img"
+        src={src}
+        alt={alt}
+        sx={{
+          display: 'block',
+          maxWidth: '100%',
+          maxHeight: '450px',
+          height: 'auto',
+          width: 'auto',
+          mx: 'auto',
+          borderRadius: 1,
+          border: '1px solid #2d3f5e',
+          objectFit: 'contain',
+        }}
+      />
+      {alt && (
+        <Typography variant="body2" sx={{ color: '#888', fontStyle: 'italic', textAlign: 'center', fontSize: '0.8rem' }}>
+          {alt}
+        </Typography>
+      )}
+    </Box>
+  ),
+  figure: ({ children }: { children?: React.ReactNode }) => (
+    <Box
+      component="figure"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        mx: 0,
+        my: 3,
+        gap: 1,
+        '& figcaption': {
+          color: '#888',
+          fontStyle: 'italic',
+          textAlign: 'center',
+          fontSize: '0.8rem',
+          fontFamily: 'inherit',
+        },
+      }}
+    >
+      {children}
+    </Box>
+  ),
+  figcaption: ({ children }: { children?: React.ReactNode }) => (
+    <Box
+      component="figcaption"
+      style={{
+        color: '#888',
+        fontStyle: 'italic',
+        textAlign: 'center',
+        fontSize: '0.8rem',
+        width: '100%',
+        margin: 0,
+        fontFamily: 'inherit',
+      }}
+    >
+      {children}
+    </Box>
+  ),
+  video: ({
+    src,
+    children,
+    controls,
+    autoPlay,
+    loop,
+    muted,
+    poster,
+    preload,
+  }: {
+    src?: string;
+    children?: React.ReactNode;
+    controls?: boolean;
+    autoPlay?: boolean;
+    loop?: boolean;
+    muted?: boolean;
+    poster?: string;
+    preload?: string;
+  }) => (
+    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', my: 3 }}>
+      <Box
+        component="video"
+        src={src}
+        controls={controls}
+        autoPlay={autoPlay}
+        loop={loop}
+        muted={muted}
+        poster={poster}
+        preload={preload}
+        sx={{
+          maxWidth: '100%',
+          maxHeight: '450px',
+          borderRadius: 1,
+          border: '1px solid #2d3f5e',
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  ),
+  VideoFigure: ({ src, caption, controls, autoPlay, loop, muted, poster }: {
+    src?: string;
+    caption?: string;
+    controls?: boolean;
+    autoPlay?: boolean;
+    loop?: boolean;
+    muted?: boolean;
+    poster?: string;
+  }) => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 3, gap: 1 }}>
+      <Box
+        component="video"
+        src={src}
+        controls={controls}
+        autoPlay={autoPlay}
+        loop={loop}
+        muted={muted}
+        poster={poster}
+        sx={{ maxWidth: '100%', maxHeight: '450px', borderRadius: 1, border: '1px solid #2d3f5e' }}
+      />
+      {caption && (
+        <Box
+          component="span"
+          style={{ color: '#888', fontStyle: 'italic', textAlign: 'center', fontSize: '0.8rem', display: 'block', width: '100%' }}
+        >
+          {caption}
+        </Box>
+      )}
+    </Box>
+  ),
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+    <Box
+      component="a"
+      href={href}
+      target={href?.startsWith('http') ? '_blank' : undefined}
+      rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
+      sx={{
+        color: '#90b4e8',
+        textDecoration: 'none',
+        borderBottom: '1px solid rgba(144, 180, 232, 0.35)',
+        transition: 'color 0.15s, border-color 0.15s',
+        '&:hover': {
+          color: '#b8d0f5',
+          borderBottomColor: '#b8d0f5',
+        },
+      }}
+    >
+      {children}
+    </Box>
+  ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
     <Box
       component="blockquote"
@@ -162,7 +315,7 @@ export default async function ResearchPostPage({ params }: { params: { slug: str
   };
 
   return (
-    <Box sx={{ maxWidth: '720px', py: 3, pr: { xs: 2, md: 4 } }}>
+    <Box sx={{ maxWidth: '720px', width: '100%', py: 3, px: { xs: 3, md: 4 } }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* Article header */}
       <Box sx={{ mb: 4 }}>
