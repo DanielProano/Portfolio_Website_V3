@@ -142,6 +142,7 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                         <MenuItem value="calendar">Calendar</MenuItem>
                         <MenuItem value="tasks">Tasks</MenuItem>
                         <MenuItem value="flashcards">Flashcards</MenuItem>
+                        <MenuItem value="ideas">Ideas</MenuItem>
                     </Select>
                 </Box>
 
