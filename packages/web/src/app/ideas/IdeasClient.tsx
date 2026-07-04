@@ -16,7 +16,7 @@ import EditIcon from '@mui/icons-material/Edit';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type IdeaFolder = { id: number; name: string; sort_order: number | null };
-type Idea = { id: number; folder_id: number; title: string; description: string; sort_order: number | null };
+type Idea = { id: number; folder_id: number; title: string; sort_order: number | null };
 
 type FolderDragState = {
     id: number;
@@ -26,8 +26,7 @@ type FolderDragState = {
 };
 
 type IdeaDragState = {
-    id: number;
-    folderId: number;
+    idea: Idea;
     originalIndex: number;
     deltaY: number;
     isDragging: boolean;
@@ -42,7 +41,7 @@ type FormMode =
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FOLDER_ROW_HEIGHT = 48;
-const IDEA_ROW_HEIGHT = 60;
+const IDEA_ROW_HEIGHT = 52;
 
 const inputSx = {
     '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } },
@@ -70,20 +69,16 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
 
     const [ideaDrag, setIdeaDrag] = useState<IdeaDragState | null>(null);
     const ideaDragStartY = useRef(0);
-    const lastIdeaWasDrag = useRef(false);
 
-    // Inline editing state
+    // Inline editing
     const [editingIdeaId, setEditingIdeaId] = useState<number | null>(null);
     const [editTitle, setEditTitle] = useState('');
-    const [editDesc, setEditDesc] = useState('');
     const editTitleRef = useRef('');
-    const editDescRef = useRef('');
     const editFolderIdRef = useRef<number>(0);
 
     const [formMode, setFormMode] = useState<FormMode>({ type: 'none' });
     const [folderNameInput, setFolderNameInput] = useState('');
     const [ideaTitleInput, setIdeaTitleInput] = useState('');
-    const [ideaDescInput, setIdeaDescInput] = useState('');
 
     // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -92,18 +87,14 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
             const res = await fetch('/api/ideas/folders');
             if (!res.ok) { setFolders([]); return; }
             const data = await res.json();
-            const fetchedFolders: IdeaFolder[] = data.folders ?? [];
-            setFolders(fetchedFolders);
+            const fetched: IdeaFolder[] = data.folders ?? [];
+            setFolders(fetched);
             setCollapsed(prev => {
                 const next = { ...prev };
-                for (const f of fetchedFolders) {
-                    if (!(f.id in next)) next[f.id] = true;
-                }
+                for (const f of fetched) { if (!(f.id in next)) next[f.id] = true; }
                 return next;
             });
-        } catch {
-            setFolders([]);
-        }
+        } catch { setFolders([]); }
     }, []);
 
     const fetchFolderIdeas = useCallback(async (folderId: number) => {
@@ -113,23 +104,17 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
             const data = await res.json();
             setIdeas(prev => ({ ...prev, [folderId]: data.ideas ?? [] }));
             setLoadedFolders(prev => { const next = new Set(prev); next.add(folderId); return next; });
-        } catch {
-            setIdeas(prev => ({ ...prev, [folderId]: [] }));
-        }
+        } catch { setIdeas(prev => ({ ...prev, [folderId]: [] })); }
     }, []);
 
-    useEffect(() => {
-        if (isAdmin) fetchFolders();
-    }, [isAdmin, fetchFolders]);
+    useEffect(() => { if (isAdmin) fetchFolders(); }, [isAdmin, fetchFolders]);
 
     // ── Expand / collapse ──────────────────────────────────────────────────────
 
     const toggleFolder = useCallback((folderId: number) => {
         setCollapsed(prev => {
             const nowCollapsed = !prev[folderId];
-            if (!nowCollapsed && !loadedFolders.has(folderId)) {
-                fetchFolderIdeas(folderId);
-            }
+            if (!nowCollapsed && !loadedFolders.has(folderId)) fetchFolderIdeas(folderId);
             return { ...prev, [folderId]: nowCollapsed };
         });
     }, [loadedFolders, fetchFolderIdeas]);
@@ -152,14 +137,12 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
     const handleFolderDragEnd = async () => {
         if (!folderDrag) return;
         if (!folderDrag.isDragging) { setFolderDrag(null); return; }
-
         const toIdx = Math.max(0, Math.min(folders.length - 1,
             folderDrag.originalIndex + Math.round(folderDrag.deltaY / FOLDER_ROW_HEIGHT)));
         const reordered = moveItem(folders, folderDrag.originalIndex, toIdx);
         const withOrder = reordered.map((f, i) => ({ ...f, sort_order: i }));
         setFolders(withOrder);
         setFolderDrag(null);
-
         await fetch('/api/ideas/folders', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -180,14 +163,7 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
         if (editingIdeaId !== null) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         ideaDragStartY.current = e.clientY;
-        lastIdeaWasDrag.current = false;
-        setIdeaDrag({
-            id: idea.id,
-            folderId: idea.folder_id,
-            originalIndex: index,
-            deltaY: 0,
-            isDragging: false,
-        });
+        setIdeaDrag({ idea, originalIndex: index, deltaY: 0, isDragging: false });
     };
 
     const handleIdeaDragMove = (e: React.PointerEvent) => {
@@ -200,38 +176,35 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
         if (!ideaDrag) return;
 
         if (!ideaDrag.isDragging) {
-            lastIdeaWasDrag.current = false;
+            // Tap without drag — enter inline edit mode
+            const idea = ideaDrag.idea;
             setIdeaDrag(null);
+            setEditingIdeaId(idea.id);
+            setEditTitle(idea.title);
+            editTitleRef.current = idea.title;
+            editFolderIdRef.current = idea.folder_id;
             return;
         }
 
-        lastIdeaWasDrag.current = true;
-
-        // Use the live pointer coordinates from the event — not stale state
+        // Use live pointer coords from the event, not stale state
         const el = document.elementFromPoint(e.clientX, e.clientY);
         const folderEl = el?.closest('[data-folder-id]');
         const targetFolderIdStr = folderEl?.getAttribute('data-folder-id');
         const targetFolderId = targetFolderIdStr ? parseInt(targetFolderIdStr, 10) : null;
 
-        const sourceFolderId = ideaDrag.folderId;
+        const sourceFolderId = ideaDrag.idea.folder_id;
         const sourceIdeas = ideas[sourceFolderId] ?? [];
 
         if (targetFolderId !== null && targetFolderId !== sourceFolderId) {
-            // Move to a different folder
             setIdeaDrag(null);
             await fetch('/api/ideas', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ updates: [{ id: ideaDrag.id, folder_id: targetFolderId, sort_order: 0 }] }),
+                body: JSON.stringify({ updates: [{ id: ideaDrag.idea.id, folder_id: targetFolderId, sort_order: 0 }] }),
             });
-            // Expand and load the target folder so the user sees the result
             setCollapsed(prev => ({ ...prev, [targetFolderId]: false }));
-            await Promise.all([
-                fetchFolderIdeas(sourceFolderId),
-                fetchFolderIdeas(targetFolderId),
-            ]);
+            await Promise.all([fetchFolderIdeas(sourceFolderId), fetchFolderIdeas(targetFolderId)]);
         } else {
-            // Reorder within same folder
             const toIdx = Math.max(0, Math.min(sourceIdeas.length - 1,
                 ideaDrag.originalIndex + Math.round(ideaDrag.deltaY / IDEA_ROW_HEIGHT)));
             setIdeaDrag(null);
@@ -250,23 +223,13 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
 
     const getDisplayedIdeas = (folderId: number): Idea[] => {
         const folderIdeas = ideas[folderId] ?? [];
-        if (!ideaDrag?.isDragging || ideaDrag.folderId !== folderId) return folderIdeas;
+        if (!ideaDrag?.isDragging || ideaDrag.idea.folder_id !== folderId) return folderIdeas;
         const toIdx = Math.max(0, Math.min(folderIdeas.length - 1,
             ideaDrag.originalIndex + Math.round(ideaDrag.deltaY / IDEA_ROW_HEIGHT)));
         return moveItem(folderIdeas, ideaDrag.originalIndex, toIdx);
     };
 
-    // ── Inline idea editing ────────────────────────────────────────────────────
-
-    const startEditIdea = (idea: Idea) => {
-        if (lastIdeaWasDrag.current) { lastIdeaWasDrag.current = false; return; }
-        setEditingIdeaId(idea.id);
-        setEditTitle(idea.title);
-        setEditDesc(idea.description);
-        editTitleRef.current = idea.title;
-        editDescRef.current = idea.description;
-        editFolderIdRef.current = idea.folder_id;
-    };
+    // ── Inline idea save ───────────────────────────────────────────────────────
 
     const saveIdeaEdit = async () => {
         if (editingIdeaId === null) return;
@@ -276,18 +239,16 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
         await fetch(`/api/ideas/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: editTitleRef.current, description: editDescRef.current }),
+            body: JSON.stringify({ title: editTitleRef.current }),
         });
         fetchFolderIdeas(folderId);
     };
-
-    const cancelIdeaEdit = () => setEditingIdeaId(null);
 
     // ── Form helpers ───────────────────────────────────────────────────────────
 
     const openNewFolder = () => { setFolderNameInput(''); setFormMode({ type: 'newFolder' }); };
     const openEditFolder = (folder: IdeaFolder) => { setFolderNameInput(folder.name); setFormMode({ type: 'editFolder', folder }); };
-    const openNewIdea = (folderId: number) => { setIdeaTitleInput(''); setIdeaDescInput(''); setFormMode({ type: 'newIdea', folderId }); };
+    const openNewIdea = (folderId: number) => { setIdeaTitleInput(''); setFormMode({ type: 'newIdea', folderId }); };
     const closeForm = () => setFormMode({ type: 'none' });
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -296,17 +257,9 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
         const name = folderNameInput.trim();
         if (!name) return;
         if (formMode.type === 'newFolder') {
-            await fetch('/api/ideas/folders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name }),
-            });
+            await fetch('/api/ideas/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
         } else if (formMode.type === 'editFolder') {
-            await fetch(`/api/ideas/folders/${formMode.folder.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name }),
-            });
+            await fetch(`/api/ideas/folders/${formMode.folder.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
         }
         closeForm();
         await fetchFolders();
@@ -323,11 +276,7 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
         const title = ideaTitleInput.trim();
         if (!title || formMode.type !== 'newIdea') return;
         const folderId = formMode.folderId;
-        await fetch('/api/ideas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folder_id: folderId, title, description: ideaDescInput }),
-        });
+        await fetch('/api/ideas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder_id: folderId, title }) });
         closeForm();
         await fetchFolderIdeas(folderId);
     };
@@ -343,39 +292,14 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
     const isFolderForm = formMode.type === 'newFolder' || formMode.type === 'editFolder';
 
     return (
-        <Box sx={{
-            height: 'calc(100vh - 72px)',
-            backgroundColor: '#1e2535',
-            color: '#f0e8e8',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-        }}>
+        <Box sx={{ height: 'calc(100vh - 72px)', backgroundColor: '#1e2535', color: '#f0e8e8', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
             {/* Header */}
-            <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                px: 3,
-                py: 2,
-                borderBottom: '1px solid #4a5568',
-                flexShrink: 0,
-            }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, borderBottom: '1px solid #4a5568', flexShrink: 0 }}>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>Ideas Board</Typography>
                 {isAdmin && (
-                    <Button
-                        startIcon={<AddIcon />}
-                        onClick={openNewFolder}
-                        variant="contained"
-                        size="small"
-                        sx={{
-                            backgroundColor: '#90b4e8',
-                            color: '#1e2535',
-                            fontWeight: 600,
-                            textTransform: 'none',
-                            '&:hover': { backgroundColor: '#64b5f6' },
-                        }}
-                    >
+                    <Button startIcon={<AddIcon />} onClick={openNewFolder} variant="contained" size="small"
+                        sx={{ backgroundColor: '#90b4e8', color: '#1e2535', fontWeight: 600, textTransform: 'none', '&:hover': { backgroundColor: '#64b5f6' } }}>
                         New Folder
                     </Button>
                 )}
@@ -386,17 +310,8 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
                 {!isAdmin ? (
                     <Box sx={{ textAlign: 'center', mt: 8 }}>
                         <Typography sx={{ color: '#718096', mb: 2 }}>Sign in to view your ideas board.</Typography>
-                        <Button
-                            component="a"
-                            href="/auth/login"
-                            variant="outlined"
-                            sx={{
-                                color: '#90b4e8',
-                                borderColor: '#3d5280',
-                                textTransform: 'none',
-                                '&:hover': { borderColor: '#90b4e8', bgcolor: '#1e2d46' },
-                            }}
-                        >
+                        <Button component="a" href="/auth/login" variant="outlined"
+                            sx={{ color: '#90b4e8', borderColor: '#3d5280', textTransform: 'none', '&:hover': { borderColor: '#90b4e8', bgcolor: '#1e2d46' } }}>
                             Sign In
                         </Button>
                     </Box>
@@ -409,27 +324,20 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
                         {displayedFolders.map((folder, folderIndex) => {
                             const isExpanded = !collapsed[folder.id];
                             const isFolderBeingDragged = folderDrag?.id === folder.id && folderDrag.isDragging;
-                            const isIdeaDragHovering = ideaDrag?.isDragging && ideaDrag.folderId !== folder.id;
+                            const isIdeaDragHovering = ideaDrag?.isDragging && ideaDrag.idea.folder_id !== folder.id;
                             const folderIdeas = getDisplayedIdeas(folder.id);
 
                             return (
-                                <Box
-                                    key={folder.id}
-                                    data-folder-id={folder.id}
-                                    sx={{ mb: 0.5 }}
-                                >
-                                    {/* Folder header row */}
+                                <Box key={folder.id} data-folder-id={folder.id} sx={{ mb: 0.5 }}>
+
+                                    {/* Folder header */}
                                     <Box
                                         onPointerMove={isAdmin ? handleFolderDragMove : undefined}
                                         onPointerUp={isAdmin ? handleFolderDragEnd : undefined}
                                         onPointerCancel={isAdmin ? () => setFolderDrag(null) : undefined}
                                         sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 0.5,
-                                            px: 1,
-                                            py: 0.75,
-                                            borderRadius: 2,
+                                            display: 'flex', alignItems: 'center', gap: 0.5,
+                                            px: 1, py: 0.75, borderRadius: 2,
                                             backgroundColor: isIdeaDragHovering ? '#2a3550' : isFolderBeingDragged ? '#1a2030' : '#252f42',
                                             border: '1px solid',
                                             borderColor: isIdeaDragHovering ? '#90b4e8' : isFolderBeingDragged ? '#64b5f6' : '#4a5568',
@@ -439,50 +347,23 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
                                             minHeight: `${FOLDER_ROW_HEIGHT}px`,
                                         }}
                                     >
-                                        {/* Folder drag handle */}
                                         {isAdmin && (
                                             <Tooltip title="Drag to reorder">
-                                                <IconButton
-                                                    size="small"
-                                                    onPointerDown={e => handleFolderDragStart(e, folder.id, folderIndex)}
-                                                    sx={{
-                                                        color: '#4a5568',
-                                                        p: 0.25,
-                                                        cursor: folderDrag?.isDragging ? 'grabbing' : 'grab',
-                                                        '&:hover': { color: '#718096' },
-                                                        touchAction: 'none',
-                                                    }}
-                                                >
+                                                <IconButton size="small" onPointerDown={e => handleFolderDragStart(e, folder.id, folderIndex)}
+                                                    sx={{ color: '#4a5568', p: 0.25, cursor: folderDrag?.isDragging ? 'grabbing' : 'grab', '&:hover': { color: '#718096' }, touchAction: 'none' }}>
                                                     <DragIndicatorIcon sx={{ fontSize: 18 }} />
                                                 </IconButton>
                                             </Tooltip>
                                         )}
 
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => toggleFolder(folder.id)}
-                                            sx={{ color: '#90b4e8', p: 0.25 }}
-                                        >
-                                            {isExpanded
-                                                ? <ExpandMoreIcon sx={{ fontSize: 20 }} />
-                                                : <ChevronRightIcon sx={{ fontSize: 20 }} />
-                                            }
+                                        <IconButton size="small" onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: 0.25 }}>
+                                            {isExpanded ? <ExpandMoreIcon sx={{ fontSize: 20 }} /> : <ChevronRightIcon sx={{ fontSize: 20 }} />}
                                         </IconButton>
 
                                         <FolderIcon sx={{ color: '#90b4e8', fontSize: 18, flexShrink: 0 }} />
 
-                                        <Typography
-                                            onClick={() => toggleFolder(folder.id)}
-                                            sx={{
-                                                flex: 1,
-                                                fontWeight: 600,
-                                                fontSize: '0.95rem',
-                                                color: '#f0e8e8',
-                                                cursor: 'pointer',
-                                                '&:hover': { color: '#90b4e8' },
-                                                transition: 'color 0.15s',
-                                            }}
-                                        >
+                                        <Typography onClick={() => toggleFolder(folder.id)}
+                                            sx={{ flex: 1, fontWeight: 600, fontSize: '0.95rem', color: '#f0e8e8', cursor: 'pointer', '&:hover': { color: '#90b4e8' }, transition: 'color 0.15s' }}>
                                             {folder.name}
                                             {loadedFolders.has(folder.id) && (
                                                 <Typography component="span" sx={{ color: '#4a5568', fontSize: '0.75rem', ml: 1, fontWeight: 400 }}>
@@ -495,30 +376,21 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, ml: 'auto' }}>
                                                 {isExpanded && (
                                                     <Tooltip title="Add Idea">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => openNewIdea(folder.id)}
-                                                            sx={{ color: '#90b4e8', p: 0.5, '&:hover': { color: '#64b5f6' } }}
-                                                        >
+                                                        <IconButton size="small" onClick={() => openNewIdea(folder.id)}
+                                                            sx={{ color: '#90b4e8', p: 0.5, '&:hover': { color: '#64b5f6' } }}>
                                                             <AddIcon sx={{ fontSize: 16 }} />
                                                         </IconButton>
                                                     </Tooltip>
                                                 )}
                                                 <Tooltip title="Rename folder">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => openEditFolder(folder)}
-                                                        sx={{ color: '#64b5f6', p: 0.5, '&:hover': { color: '#90b4e8' } }}
-                                                    >
+                                                    <IconButton size="small" onClick={() => openEditFolder(folder)}
+                                                        sx={{ color: '#64b5f6', p: 0.5, '&:hover': { color: '#90b4e8' } }}>
                                                         <EditIcon sx={{ fontSize: 16 }} />
                                                     </IconButton>
                                                 </Tooltip>
                                                 <Tooltip title="Delete folder">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleDeleteFolder(folder.id)}
-                                                        sx={{ color: '#e57373', p: 0.5, '&:hover': { color: '#ff5252' } }}
-                                                    >
+                                                    <IconButton size="small" onClick={() => handleDeleteFolder(folder.id)}
+                                                        sx={{ color: '#e57373', p: 0.5, '&:hover': { color: '#ff5252' } }}>
                                                         <DeleteIcon sx={{ fontSize: 16 }} />
                                                     </IconButton>
                                                 </Tooltip>
@@ -529,172 +401,80 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
                                     {/* Ideas list */}
                                     <Collapse in={isExpanded} timeout={180}>
                                         <Box sx={{ pl: isAdmin ? 5 : 3, pr: 1, pt: 0.5, pb: 0.5 }}>
-                                            {!loadedFolders.has(folder.id) ? (
-                                                <Typography sx={{ color: '#4a5568', fontSize: '0.8rem', py: 1, fontStyle: 'italic' }}>
-                                                    Loading…
-                                                </Typography>
-                                            ) : folderIdeas.length === 0 ? (
-                                                <Typography sx={{ color: '#4a5568', fontSize: '0.8rem', py: 1, fontStyle: 'italic' }}>
-                                                    No ideas in this folder yet.
-                                                </Typography>
-                                            ) : (
-                                                folderIdeas.map((idea, ideaIndex) => {
-                                                    const isBeingDragged = ideaDrag?.id === idea.id && ideaDrag.isDragging;
-                                                    const isEditing = editingIdeaId === idea.id;
+                                            {loadedFolders.has(folder.id) && folderIdeas.map((idea, ideaIndex) => {
+                                                const isBeingDragged = ideaDrag?.idea.id === idea.id && ideaDrag.isDragging;
+                                                const isEditing = editingIdeaId === idea.id;
 
-                                                    return (
-                                                        <Box
-                                                            key={idea.id}
-                                                            onPointerDown={isAdmin && !isEditing
-                                                                ? e => handleIdeaDragStart(e, idea, ideaIndex)
-                                                                : undefined}
-                                                            onPointerMove={isAdmin ? handleIdeaDragMove : undefined}
-                                                            onPointerUp={isAdmin ? handleIdeaDragEnd : undefined}
-                                                            onPointerCancel={isAdmin ? () => setIdeaDrag(null) : undefined}
-                                                            sx={{
-                                                                display: 'flex',
-                                                                alignItems: 'flex-start',
-                                                                gap: 0.75,
-                                                                px: 1.5,
-                                                                py: 1,
-                                                                mb: 0.5,
-                                                                borderRadius: 1.5,
-                                                                backgroundColor: '#1a2030',
-                                                                border: '1px solid',
-                                                                borderColor: isBeingDragged ? '#64b5f6' : isEditing ? '#90b4e8' : '#3a4255',
-                                                                opacity: isBeingDragged ? 0.4 : 1,
-                                                                transition: ideaDrag?.isDragging ? 'none' : 'opacity 0.15s, border-color 0.15s',
-                                                                cursor: isEditing ? 'default' : isAdmin ? (ideaDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
-                                                                userSelect: isEditing ? 'text' : 'none',
-                                                                touchAction: 'none',
-                                                                minHeight: `${IDEA_ROW_HEIGHT}px`,
-                                                            }}
-                                                        >
-                                                            {/* Idea content — inline editable when admin */}
-                                                            {isEditing ? (
-                                                                <Box
-                                                                    sx={{ flex: 1, minWidth: 0 }}
-                                                                    onBlur={e => {
-                                                                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                                                                            saveIdeaEdit();
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Box
-                                                                        component="input"
-                                                                        autoFocus
-                                                                        value={editTitle}
-                                                                        onChange={e => {
-                                                                            setEditTitle(e.target.value);
-                                                                            editTitleRef.current = e.target.value;
-                                                                        }}
-                                                                        onKeyDown={e => {
-                                                                            if (e.key === 'Escape') cancelIdeaEdit();
-                                                                            if (e.key === 'Enter') { e.preventDefault(); saveIdeaEdit(); }
-                                                                        }}
-                                                                        onPointerDown={e => e.stopPropagation()}
-                                                                        sx={{
-                                                                            width: '100%',
-                                                                            background: 'transparent',
-                                                                            border: 'none',
-                                                                            borderBottom: '1px solid #4a5568',
-                                                                            outline: 'none',
-                                                                            color: '#f0e8e8',
-                                                                            fontWeight: 700,
-                                                                            fontSize: '0.9rem',
-                                                                            fontFamily: 'inherit',
-                                                                            pb: 0.25,
-                                                                            mb: 0.5,
-                                                                        }}
-                                                                    />
-                                                                    <Box
-                                                                        component="textarea"
-                                                                        value={editDesc}
-                                                                        onChange={e => {
-                                                                            setEditDesc(e.target.value);
-                                                                            editDescRef.current = e.target.value;
-                                                                        }}
-                                                                        onKeyDown={e => {
-                                                                            if (e.key === 'Escape') cancelIdeaEdit();
-                                                                        }}
-                                                                        onPointerDown={e => e.stopPropagation()}
-                                                                        placeholder="Description…"
-                                                                        rows={2}
-                                                                        sx={{
-                                                                            width: '100%',
-                                                                            background: 'transparent',
-                                                                            border: 'none',
-                                                                            outline: 'none',
-                                                                            color: '#718096',
-                                                                            fontSize: '0.78rem',
-                                                                            fontFamily: 'inherit',
-                                                                            resize: 'none',
-                                                                            lineHeight: 1.4,
-                                                                            '&::placeholder': { color: '#3a4255' },
-                                                                        }}
-                                                                    />
-                                                                </Box>
-                                                            ) : (
-                                                                <Box
-                                                                    sx={{ flex: 1, minWidth: 0 }}
-                                                                    onClick={isAdmin ? () => startEditIdea(idea) : undefined}
-                                                                >
-                                                                    <Typography sx={{
-                                                                        fontWeight: 700,
-                                                                        fontSize: '0.9rem',
-                                                                        color: '#f0e8e8',
-                                                                        overflow: 'hidden',
-                                                                        textOverflow: 'ellipsis',
-                                                                        whiteSpace: 'nowrap',
-                                                                    }}>
-                                                                        {idea.title}
-                                                                    </Typography>
-                                                                    {idea.description && (
-                                                                        <Typography sx={{
-                                                                            color: '#718096',
-                                                                            fontSize: '0.78rem',
-                                                                            mt: 0.2,
-                                                                            overflow: 'hidden',
-                                                                            textOverflow: 'ellipsis',
-                                                                            whiteSpace: 'nowrap',
-                                                                        }}>
-                                                                            {idea.description}
-                                                                        </Typography>
-                                                                    )}
-                                                                </Box>
-                                                            )}
+                                                return (
+                                                    <Box
+                                                        key={idea.id}
+                                                        onPointerDown={isAdmin && !isEditing ? e => handleIdeaDragStart(e, idea, ideaIndex) : undefined}
+                                                        onPointerMove={isAdmin ? handleIdeaDragMove : undefined}
+                                                        onPointerUp={isAdmin ? handleIdeaDragEnd : undefined}
+                                                        onPointerCancel={isAdmin ? () => setIdeaDrag(null) : undefined}
+                                                        sx={{
+                                                            display: 'flex', alignItems: 'center', gap: 0.75,
+                                                            px: 1.5, py: 0.75, mb: 0.5, borderRadius: 1.5,
+                                                            backgroundColor: '#1a2030',
+                                                            border: '1px solid',
+                                                            borderColor: isBeingDragged ? '#64b5f6' : isEditing ? '#90b4e8' : '#3a4255',
+                                                            opacity: isBeingDragged ? 0.4 : 1,
+                                                            transition: ideaDrag?.isDragging ? 'none' : 'opacity 0.15s, border-color 0.15s',
+                                                            cursor: isEditing ? 'text' : isAdmin ? (ideaDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
+                                                            userSelect: isEditing ? 'text' : 'none',
+                                                            touchAction: 'none',
+                                                            minHeight: `${IDEA_ROW_HEIGHT}px`,
+                                                        }}
+                                                    >
+                                                        {isEditing ? (
+                                                            <Box
+                                                                component="input"
+                                                                autoFocus
+                                                                value={editTitle}
+                                                                onChange={e => { setEditTitle(e.target.value); editTitleRef.current = e.target.value; }}
+                                                                onBlur={saveIdeaEdit}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') { e.preventDefault(); saveIdeaEdit(); }
+                                                                    if (e.key === 'Escape') setEditingIdeaId(null);
+                                                                }}
+                                                                onPointerDown={e => e.stopPropagation()}
+                                                                sx={{
+                                                                    flex: 1, minWidth: 0,
+                                                                    background: 'transparent', border: 'none',
+                                                                    borderBottom: '1px solid #4a5568',
+                                                                    outline: 'none', color: '#f0e8e8',
+                                                                    fontWeight: 700, fontSize: '0.9rem',
+                                                                    fontFamily: 'inherit', pb: 0.25,
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <Typography sx={{
+                                                                flex: 1, minWidth: 0,
+                                                                fontWeight: 700, fontSize: '0.9rem', color: '#f0e8e8',
+                                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                            }}>
+                                                                {idea.title}
+                                                            </Typography>
+                                                        )}
 
-                                                            {/* Delete button */}
-                                                            {isAdmin && (
-                                                                <Tooltip title="Delete">
-                                                                    <IconButton
-                                                                        size="small"
-                                                                        onPointerDown={e => e.stopPropagation()}
-                                                                        onClick={e => { e.stopPropagation(); handleDeleteIdea(idea); }}
-                                                                        sx={{ color: '#e57373', p: 0.5, flexShrink: 0, mt: 0.25, '&:hover': { color: '#ff5252' } }}
-                                                                    >
-                                                                        <DeleteIcon sx={{ fontSize: 15 }} />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                            )}
-                                                        </Box>
-                                                    );
-                                                })
-                                            )}
+                                                        {isAdmin && (
+                                                            <Tooltip title="Delete">
+                                                                <IconButton size="small"
+                                                                    onPointerDown={e => e.stopPropagation()}
+                                                                    onClick={e => { e.stopPropagation(); handleDeleteIdea(idea); }}
+                                                                    sx={{ color: '#e57373', p: 0.5, flexShrink: 0, '&:hover': { color: '#ff5252' } }}>
+                                                                    <DeleteIcon sx={{ fontSize: 15 }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Box>
+                                                );
+                                            })}
+
                                             {isAdmin && (
-                                                <Button
-                                                    size="small"
-                                                    startIcon={<AddIcon sx={{ fontSize: 14 }} />}
+                                                <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />}
                                                     onClick={() => openNewIdea(folder.id)}
-                                                    sx={{
-                                                        color: '#4a5568',
-                                                        textTransform: 'none',
-                                                        fontSize: '0.78rem',
-                                                        py: 0.25,
-                                                        mt: 0.25,
-                                                        '&:hover': { color: '#90b4e8', backgroundColor: 'transparent' },
-                                                    }}
-                                                >
+                                                    sx={{ color: '#4a5568', textTransform: 'none', fontSize: '0.78rem', py: 0.25, mt: 0.25, '&:hover': { color: '#90b4e8', backgroundColor: 'transparent' } }}>
                                                     Add idea
                                                 </Button>
                                             )}
@@ -708,56 +488,24 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
             </Box>
 
             {/* Modal backdrop */}
-            {formOpen && (
-                <Box
-                    onClick={closeForm}
-                    sx={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1200 }}
-                />
-            )}
+            {formOpen && <Box onClick={closeForm} sx={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1200 }} />}
 
-            {/* Folder form modal */}
+            {/* Folder form */}
             {formOpen && isFolderForm && (
-                <Box sx={{
-                    position: 'fixed',
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 1300,
-                    width: { xs: '95vw', sm: '360px' },
-                    backgroundColor: '#2d3748',
-                    color: '#f0e8e8',
-                    borderRadius: '8px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                    border: '1px solid #4a5568',
-                }}>
+                <Box sx={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1300, width: { xs: '95vw', sm: '360px' }, backgroundColor: '#2d3748', color: '#f0e8e8', borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', border: '1px solid #4a5568' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5, borderBottom: '1px solid #4a5568' }}>
-                        <Typography sx={{ fontWeight: 600 }}>
-                            {formMode.type === 'newFolder' ? 'New Folder' : 'Rename Folder'}
-                        </Typography>
-                        <IconButton size="small" onClick={closeForm} sx={{ color: '#718096' }}>
-                            <CloseIcon fontSize="small" />
-                        </IconButton>
+                        <Typography sx={{ fontWeight: 600 }}>{formMode.type === 'newFolder' ? 'New Folder' : 'Rename Folder'}</Typography>
+                        <IconButton size="small" onClick={closeForm} sx={{ color: '#718096' }}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-                        <TextField
-                            label="Folder name"
-                            value={folderNameInput}
-                            onChange={e => setFolderNameInput(e.target.value)}
+                        <TextField label="Folder name" value={folderNameInput} onChange={e => setFolderNameInput(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') handleSaveFolder(); if (e.key === 'Escape') closeForm(); }}
-                            fullWidth size="small" autoFocus
-                            InputLabelProps={{ sx: { color: '#aaa' } }}
-                            inputProps={{ style: { color: '#f0e8e8' } }}
-                            sx={inputSx}
-                        />
+                            fullWidth size="small" autoFocus InputLabelProps={{ sx: { color: '#aaa' } }} inputProps={{ style: { color: '#f0e8e8' } }} sx={inputSx} />
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 2, pb: 2 }}>
                         <Button onClick={closeForm} sx={{ color: '#aaa', textTransform: 'none' }}>Cancel</Button>
-                        <Button
-                            onClick={handleSaveFolder}
-                            disabled={!folderNameInput.trim()}
-                            variant="contained"
-                            sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, '&:hover': { backgroundColor: '#64b5f6' } }}
-                        >
+                        <Button onClick={handleSaveFolder} disabled={!folderNameInput.trim()} variant="contained"
+                            sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, '&:hover': { backgroundColor: '#64b5f6' } }}>
                             Save
                         </Button>
                     </Box>
@@ -766,57 +514,20 @@ export function IdeasClient({ isAdmin }: { isAdmin: boolean }) {
 
             {/* New idea modal */}
             {formOpen && formMode.type === 'newIdea' && (
-                <Box sx={{
-                    position: 'fixed',
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 1300,
-                    width: { xs: '95vw', sm: '400px', lg: '480px' },
-                    maxHeight: '90vh',
-                    overflowY: 'auto',
-                    backgroundColor: '#2d3748',
-                    color: '#f0e8e8',
-                    borderRadius: '8px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                    border: '1px solid #4a5568',
-                }}>
+                <Box sx={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1300, width: { xs: '95vw', sm: '360px' }, backgroundColor: '#2d3748', color: '#f0e8e8', borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', border: '1px solid #4a5568' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5, borderBottom: '1px solid #4a5568' }}>
                         <Typography sx={{ fontWeight: 600 }}>New Idea</Typography>
-                        <IconButton size="small" onClick={closeForm} sx={{ color: '#718096' }}>
-                            <CloseIcon fontSize="small" />
-                        </IconButton>
+                        <IconButton size="small" onClick={closeForm} sx={{ color: '#718096' }}><CloseIcon fontSize="small" /></IconButton>
                     </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-                        <TextField
-                            label="Title"
-                            value={ideaTitleInput}
-                            onChange={e => setIdeaTitleInput(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Escape') closeForm(); }}
-                            fullWidth size="small" autoFocus
-                            InputLabelProps={{ sx: { color: '#aaa' } }}
-                            inputProps={{ style: { color: '#f0e8e8' } }}
-                            sx={inputSx}
-                        />
-                        <TextField
-                            label="Description"
-                            value={ideaDescInput}
-                            onChange={e => setIdeaDescInput(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Escape') closeForm(); }}
-                            multiline rows={3} fullWidth size="small"
-                            InputLabelProps={{ sx: { color: '#aaa' } }}
-                            inputProps={{ style: { color: '#f0e8e8' } }}
-                            sx={inputSx}
-                        />
+                    <Box sx={{ p: 2 }}>
+                        <TextField label="Title" value={ideaTitleInput} onChange={e => setIdeaTitleInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleSaveIdea(); if (e.key === 'Escape') closeForm(); }}
+                            fullWidth size="small" autoFocus InputLabelProps={{ sx: { color: '#aaa' } }} inputProps={{ style: { color: '#f0e8e8' } }} sx={inputSx} />
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 2, pb: 2 }}>
                         <Button onClick={closeForm} sx={{ color: '#aaa', textTransform: 'none' }}>Cancel</Button>
-                        <Button
-                            onClick={handleSaveIdea}
-                            disabled={!ideaTitleInput.trim()}
-                            variant="contained"
-                            sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, '&:hover': { backgroundColor: '#64b5f6' } }}
-                        >
+                        <Button onClick={handleSaveIdea} disabled={!ideaTitleInput.trim()} variant="contained"
+                            sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, '&:hover': { backgroundColor: '#64b5f6' } }}>
                             Save
                         </Button>
                     </Box>
