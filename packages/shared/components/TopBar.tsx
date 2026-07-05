@@ -150,7 +150,7 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: { xs: 0, sm: 1, md: 2 } }}>
                     <Button
                         component="a"
-                        href="/resume.pdf"
+                        href="/coming_soon.pdf"
                         download
                         variant="outlined"
                         size="small"

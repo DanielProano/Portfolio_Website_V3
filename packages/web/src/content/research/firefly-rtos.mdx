@@ -110,6 +110,16 @@ code on an x86 laptop for an ARM based microcontroller.
 
 The rest of the files are fairly self explanatory.
 
+## References 
+
+You will need all five of these docs:
+
+[Reference Manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
+[STM32F4 Datasheet](https://www.st.com/resource/en/datasheet/stm32f401cb.pdf)
+[Programming Manual](https://www.st.com/content/ccc/resource/technical/document/programming_manual/6c/3a/cb/e7/e4/ea/44/9b/DM00046982.pdf/files/DM00046982.pdf/jcr:content/translations/en.DM00046982.pdf)
+[Cortex M4](https://users.ece.utexas.edu/~valvano/EE345L/Labs/Fall2011/CortexM4_TRM_r0p1.pdf)
+[STM32F401CCU6 Specifics](https://stm32-base.org/boards/STM32F401CCU6-STM32-Mini-F401.html#User-LED)
+
 ## Primer: The Compilation process
 
 Before we write a RTOS, we need to blink the light
@@ -639,3 +649,314 @@ AT > flash > sram
 This conclues what you need to know for the linker script!
 
 ## Startup Script 
+
+![Overview of Startup](/projects/RTOS/startup.svg)
+
+We will write write the warning lights logic 
+in a second. For now, lets begin writing our Startup
+script.
+
+Remember the variable definitions we previously 
+defined like "_vector_start" and "_text_start"? 
+Well we will now declare ensure that startup 
+is aware of their existence: 
+
+```c 
+extern uint32_t _stack_start;
+extern uint32_t _stack_top; 
+extern uint32_t _data_start;
+...
+```
+
+Now, refer to Table38: Vector Table on page 203, 
+of the [Reference Manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)!
+This is what the hardware demands must exist at 
+these addresses. The vector table will live at the 
+0x00000000 (within the context of flash, so really 
+at 0x08000000) and will be the first thing the 
+processor executes on startup. 
+
+We need to make a handler function for every
+non-reserved interrupt. So for example:
+
+```c 
+void NMI_Handler(void)          __attribute__((weak));
+void HardFault_Handler(void)    __attribute__((weak));
+...
+void WWDG_IRQHandler(void)      __attribute__((weak, alias("Default_Handler")));
+...
+```
+
+The "\_\_attribute__((weak))" is not C syntax but 
+special GCC syntax. It allows a function definition 
+to be overwritten if it is defined elsewhere. 
+Functions coupled with 'weak' + 'alias("Default_Handler")',
+attributes can be both overwritten and default 
+to Default_Handler if they are not defined otherwise.
+
+There are 11 system exceptions and an innumerable 
+number of pheripheral interrupts. Two of the system 
+exceptions: default and reset handler, should not 
+be able to be overwritten. The other 9 can be 
+if so desired. 
+
+The remaining pheripheral interrupts should default 
+to Default Handler. This is because, unlike a regular 
+computer, interrupts and exceptions should not 
+be unexpected. Therefore, if an interrupt occurs 
+which should not, we default to just an 
+infinite blinking warning light. 
+
+Then define your struct:
+
+```c 
+__attribute__ ((section(".isr_vector")))
+void (* const vector_table[])(void) = {
+    ((void (*)(void)) (&_stack_top)),
+    Reset_Handler,
+    NMI_Handler,
+    HardFault_Handler,
+    MemManage_Handler,
+    ...
+```
+
+The first memory location must be the top of the 
+stack while the second must be the reset handler.
+Follow the rest of the documentation for the rest.
+
+Define the interrupts where you want things to occur 
+and plan to use. For reset Handler:
+
+```c 
+void Reset_Handler(void) {
+    uint32_t *ptr_data_sram = &_data_start;
+    uint32_t *ptr_data_flash = &_data_flash_start;
+    uint32_t data_size_words = &_data_end - &_data_start;
+
+    for (uint32_t i = 0; i < data_size_words; i++) {
+        *ptr_data_sram++ = *ptr_data_flash++;
+    }
+
+    uint32_t bss_size_words = &_bss_end - &_bss_start;
+    uint32_t *ptr_bss = &_bss_start;
+
+    for (uint32_t i = 0; i < bss_size_words; i++) {
+        *ptr_bss++ = 0;
+    }
+
+    main();
+
+    warning_light_init();
+}
+```
+
+This is the heart of the startup script. Here, 
+we need to do two things:
+
+1. Copy data from flash into sram 
+
+2. Zero out BSS 
+
+We then pass control to main function!
+
+## Main Function 
+
+The main function will live under "examples"
+folder and will control the flow of our program.
+So far, we have setup the ability to compile 
+to our architecture and what should happen during 
+the initialization of the microcontroller.
+
+Now we move onto configuring & customizing the microcontroller!
+
+```c 
+#include "hal.h"
+#include "stdint.h"
+#include "fault_indicator.h"
+
+int main(void) {
+    fpu_init();
+    rcc_init();
+    rcc_enable_gpioc();
+    gpio_init_pc13();
+    nvic_init();
+
+    while (1) {
+        gpio_toggle_pc13();
+        delay(10000000);
+    }
+
+    return 0;
+}
+```
+
+Lets go over whats going on here. First we need to 
+configure the stm32. We do that with 5 functions. 
+We need to turn on the fpu, configure the clock 
+with the Reset & Control register, enable the gpio 
+pin mapped to the map, and configure the priority 
+of interrupts. 
+
+After that, we will loop forever, toggling the 
+LED.
+
+### FPU enable 
+
+Following [this](https://deepbluembedded.com/stm32-fpu-floating-point-unit-enable-disable/) 
+resource, we are able to turn on the FPU bits with:
+
+```c 
+void fpu_init(void) {
+    SCB->CPACR |= ((3U << 20U) | (3U << 22U));
+}
+```
+
+### GPIO 
+
+Using [this](https://stm32-base.org/boards/STM32F401CCU6-STM32-Mini-F401.html#User-LED)
+reference, we find that under USER LED section, the 
+LED is connected to PC13.
+
+Now go to page 158 of the [reference manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf), 
+here we need to set the mode register for 
+PC13 to General Purpose Output mode. This 
+means bit 26 needs to be set to 1. We
+also need to clear bit 27:
+
+```c 
+void gpio_init_pc13(void) {
+    GPIOC->MODER &= ~(3U << 26);
+
+    uint32_t enable_output_mode = 1U << 26;
+    GPIOC->MODER |= enable_output_mode;
+}
+```
+
+Finally, we would like to turn the light on and 
+off again. Lets go to the output data register (ODR),
+and repeatedly set on and off the 13th bit. 
+
+```c 
+/*
+    Turn on LED
+*/
+void gpio_set_pc13(void) {
+    GPIOC->ODR &= ~(1U << 13);
+}
+
+/*
+    Turn off LED
+*/
+void gpio_clear_pc13(void) {
+    GPIOC->ODR |= (1U << 13);
+}
+
+/*
+    Toggle LED
+*/
+void gpio_toggle_pc13(void) {
+    GPIOC->ODR ^= (1U << 13);
+}
+```
+
+### Reset and Control Register 
+
+Page 104 of [Reference Manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
+
+Now we will configure the clock. There are 
+several potential sources available to us: 
+HSI and HSE. 
+
+High Speed External is an option 
+but requires, like in the name, an external crystal 
+oscillator. While it does provide higher precision 
+and excellent stability but for our drone, 
+High Speed Internal at 84 MHz is good enough!
+
+Enable it:
+
+```c 
+RCC->CR |= RCC_CR_HSION;
+``` 
+
+Page 104, we now need to wait for HSI to be stable: 
+
+```c 
+ while(!(RCC->CR & RCC_CR_HSIRDY));
+ ``` 
+
+ Now we need to select HSI for PLL to lock on,
+ reset PLL (Phase-Locked Loop), and turn on 
+ max clock speed: 84 MHz. We will 
+ transition from HSI clock to PLL because 
+ PLL allows us to surpass the normal 16 MHz 
+ HSI is stuck at. We first had to turn on HSI
+ though!
+
+ ```c 
+ /* Select HSI clock */
+RCC->PLLCFGR &= ~(RCC_PLLCFGR_PLLSRC);
+
+/* Reset PLL CFGR*/
+RCC->PLLCFGR &= ~(RCC_PLLCFGR_PLLM
+    | RCC_PLLCFGR_PLLN
+    | RCC_PLLCFGR_PLLP
+);
+
+/* Configure the PLL to be 84MHz */
+RCC->PLLCFGR |= (16U << RCC_PLLCFGR_PLLM_Pos);
+RCC->PLLCFGR |= (336U << RCC_PLLCFGR_PLLN_Pos);
+RCC->PLLCFGR |= (1U << RCC_PLLCFGR_PLLP_Pos);
+```
+
+Note that we are zero-ing out PLL CFGR 
+so that previous garabage values don't 
+interfere.
+
+Now using the docs on Page 105, we have two 
+equations:
+
+1. f<sub>(VCO clock)</sub> = f<sub>(PLL clock input)</sub> * (PLLN / PLLM)
+
+2. f<sub>(PLL general clock output)</sub> = f<sub>(VCO clock)</sub> / PLLP 
+
+It is known that the fastest the stm32 can go is 
+84 MHz. We also have a few restrictions, with 
+PLLP needs to be 2, 4, 6, or 8, PLLN needing to be
+greater than to 191 or less than 433, and finally 
+PLLM needing to be between 2 and 63 inclusive. 
+
+Lets do some reverse engineering:
+
+Start by setting to PLLP to 4, that seems reasonable:
+
+84 = VCO clock / 4 -> 336 = VCO clock
+PLL Clock Input = 16 MHz
+336 = 16 * (PLLN / PLLM)
+PLLM = 16
+PLLN = 336
+
+Perfect! Now encode those values!
+
+
+
+
+Page 46 of [Reference Manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf).
+Now that we are using PLL with a different 
+clock frequency than 16 MHz, the hardware will 
+not be able to read flash memory without additional 
+configuration. We need to intentially slow down 
+to read flash memory, by introducing latency! 
+
+With a voltage range of 3.3V and 84 MHz clock 
+frequency, the docs recommend we use 2 waiting 
+states. To do this, we need to configure the 
+ACR register:
+
+```c
+/* Reset wait states*/
+FLASH->ACR &= ~(FLASH_ACR_LATENCY_Msk);
+
+/* 2 wait states for flash at 3.3V & 84 MHz*/
+FLASH->ACR |= (2U << FLASH_ACR_LATENCY_Pos);
+``` 

@@ -200,7 +200,7 @@ export default function Home() {
 
           <Button
             component="a"
-            href="/resume.pdf"
+            href="/coming_soon.pdf"
             download
             fullWidth
             variant="outlined"
