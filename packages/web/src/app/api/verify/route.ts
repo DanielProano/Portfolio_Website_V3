@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { getPool } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
@@ -17,7 +18,8 @@ export async function POST(request: NextRequest) {
         }
 
         const row = result.rows[0];
-        if (hash !== row.hash) {
+        const valid = await bcrypt.compare(hash, row.hash);
+        if (!valid) {
             return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
         }
 

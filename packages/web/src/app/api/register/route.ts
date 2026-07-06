@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { getPool } from '@/lib/db';
 import { getSessionSafe } from '@/lib/auth0';
 
 export async function POST(request: NextRequest) {
     const session = await getSessionSafe();
-    if (session?.user?.email !== process.env.ADMIN_EMAIL) {
+    if (!session?.user?.email || session.user.email !== process.env.ADMIN_EMAIL) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -18,9 +19,10 @@ export async function POST(request: NextRequest) {
     try {
         const pool = getPool();
         const vault_salt = crypto.randomBytes(16).toString('base64');
+        const serverHash = await bcrypt.hash(hash, 12);
         await pool.query(
             'INSERT INTO users (username, hash, master_salt, enc_salt) VALUES ($1, $2, $3, $4)',
-            [user, hash, master_salt, vault_salt]
+            [user, serverHash, master_salt, vault_salt]
         );
         return NextResponse.json({ message: 'User registered successfully' }, { status: 201 });
     } catch (err: any) {
