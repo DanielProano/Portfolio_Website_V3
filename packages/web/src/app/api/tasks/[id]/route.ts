@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         return NextResponse.json({ task: result.rows[0] });
     } catch (err) {
         console.error('[PUT /api/tasks/:id]', err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 

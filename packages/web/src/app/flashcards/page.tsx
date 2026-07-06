@@ -8,5 +8,5 @@ const FlashcardsClient = dynamic(
 
 export default async function FlashcardsPage() {
     const session = await getSessionSafe();
-    return <FlashcardsClient isAdmin={!!session?.user?.sub} />;
+    return <FlashcardsClient isAdmin={session?.user?.email === process.env.ADMIN_EMAIL} />;
 }

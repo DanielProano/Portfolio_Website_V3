@@ -23,7 +23,7 @@ export async function GET() {
         return NextResponse.json({ tasks: result.rows });
     } catch (err) {
         console.error('[GET /api/tasks]', err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ task: result.rows[0] }, { status: 201 });
     } catch (err) {
         console.error('[POST /api/tasks]', err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
@@ -91,6 +91,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ ok: true });
     } catch (err) {
         console.error('[PATCH /api/tasks]', err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

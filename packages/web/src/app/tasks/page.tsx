@@ -8,5 +8,5 @@ const TasksClient = dynamic(
 
 export default async function TasksPage() {
     const session = await getSessionSafe();
-    return <TasksClient isAdmin={!!session?.user?.sub} />;
+    return <TasksClient isAdmin={session?.user?.email === process.env.ADMIN_EMAIL} />;
 }

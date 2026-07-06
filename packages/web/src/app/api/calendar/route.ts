@@ -71,6 +71,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ event: result.rows[0] }, { status: 201 });
     } catch (err) {
         console.error('[POST /api/calendar]', err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

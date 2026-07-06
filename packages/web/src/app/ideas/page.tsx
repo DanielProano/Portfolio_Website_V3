@@ -8,5 +8,5 @@ const IdeasClient = dynamic(
 
 export default async function IdeasPage() {
     const session = await getSessionSafe();
-    return <IdeasClient isAdmin={!!session?.user?.sub} />;
+    return <IdeasClient isAdmin={session?.user?.email === process.env.ADMIN_EMAIL} />;
 }

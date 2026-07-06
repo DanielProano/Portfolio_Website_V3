@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getPool } from '@/lib/db';
+import { getSessionSafe } from '@/lib/auth0';
 
 export async function POST(request: NextRequest) {
+    const session = await getSessionSafe();
+    if (session?.user?.email !== process.env.ADMIN_EMAIL) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { user, hash, master_salt } = await request.json();
 
     if (!user || !hash || !master_salt) {

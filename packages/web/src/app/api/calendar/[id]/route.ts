@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         return NextResponse.json({ event: result.rows[0] });
     } catch (err) {
         console.error('[PUT /api/calendar/:id]', err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
@@ -47,6 +47,6 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
         return NextResponse.json({ success: true });
     } catch (err) {
         console.error('[DELETE /api/calendar/:id]', err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

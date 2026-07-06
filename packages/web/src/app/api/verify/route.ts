@@ -13,12 +13,12 @@ export async function POST(request: NextRequest) {
         );
 
         if (result.rows.length === 0) {
-            return NextResponse.json({ error: 'User not found' }, { status: 401 });
+            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
         }
 
         const row = result.rows[0];
         if (hash !== row.hash) {
-            return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
         }
 
         const token = jwt.sign(
