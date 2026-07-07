@@ -4,6 +4,7 @@ import { TopBar } from '@shared/components';
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AuthButton } from '@/components/AuthButton';
+import { getSessionSafe } from '@/lib/auth0';
 import './globals.css';
 
 export const viewport = {
@@ -22,12 +23,13 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const session = await getSessionSafe();
   return (
     <html lang="en">
       <body>
         <AppRouterCacheProvider>
-          <TopBar authButton={<AuthButton />} />
+          <TopBar authButton={<AuthButton />} isLoggedIn={!!session} />
           {children}
         </AppRouterCacheProvider>
       </body>

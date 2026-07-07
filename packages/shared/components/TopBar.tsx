@@ -48,7 +48,7 @@ const iconStyle = {
     }
 };
 
-export function TopBar({ authButton }: { authButton?: ReactNode }) {
+export function TopBar({ authButton, isLoggedIn }: { authButton?: ReactNode; isLoggedIn?: boolean }) {
     const router = useRouter();
     const [isVisible, setIsVisible] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
@@ -129,21 +129,23 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                         <MenuItem value="password/login">Password Manager</MenuItem>
                     </Select>
 
-                    <Select
-                        value={selectedOption}
-                        onChange={handleSelectChange}
-                        displayEmpty
-                        sx={dropDownStyle}
-                        renderValue={() => 'Features'}
-                        open={openAboutMenu}
-                        onOpen={() => setOpenAboutMenu(true)}
-                        onClose={() => setOpenAboutMenu(false)}
-                    >
-                        <MenuItem value="calendar">Calendar</MenuItem>
-                        <MenuItem value="tasks">Tasks</MenuItem>
-                        <MenuItem value="flashcards">Flashcards</MenuItem>
-                        <MenuItem value="ideas">Ideas</MenuItem>
-                    </Select>
+                    {isLoggedIn && (
+                        <Select
+                            value={selectedOption}
+                            onChange={handleSelectChange}
+                            displayEmpty
+                            sx={dropDownStyle}
+                            renderValue={() => 'Features'}
+                            open={openAboutMenu}
+                            onOpen={() => setOpenAboutMenu(true)}
+                            onClose={() => setOpenAboutMenu(false)}
+                        >
+                            <MenuItem value="calendar">Calendar</MenuItem>
+                            <MenuItem value="tasks">Tasks</MenuItem>
+                            <MenuItem value="flashcards">Flashcards</MenuItem>
+                            <MenuItem value="ideas">Ideas</MenuItem>
+                        </Select>
+                    )}
                 </Box>
 
                 {/* Column 3: Actions — right-aligned */}

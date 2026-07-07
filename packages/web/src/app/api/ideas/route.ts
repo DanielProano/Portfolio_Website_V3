@@ -50,6 +50,18 @@ export async function PATCH(request: NextRequest) {
     if (!Array.isArray(updates)) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
 
     const pool = getPool();
+
+    const targetFolderIds = Array.from(new Set(updates.map(u => u.folder_id).filter((f): f is number => f != null)));
+    if (targetFolderIds.length > 0) {
+        const ownerCheck = await pool.query(
+            'SELECT id FROM idea_folders WHERE id = ANY($1) AND user_id = $2',
+            [targetFolderIds, session.user.sub]
+        );
+        if (ownerCheck.rows.length !== targetFolderIds.length) {
+            return NextResponse.json({ error: 'Invalid folder' }, { status: 403 });
+        }
+    }
+
     await Promise.all(
         updates.map(({ id, sort_order, folder_id }) =>
             pool.query(

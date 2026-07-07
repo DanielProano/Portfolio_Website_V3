@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic';
+import { redirect } from 'next/navigation';
 import { getSessionSafe } from '@/lib/auth0';
 
 const IdeasClient = dynamic(
@@ -8,5 +9,6 @@ const IdeasClient = dynamic(
 
 export default async function IdeasPage() {
     const session = await getSessionSafe();
-    return <IdeasClient isAdmin={session?.user?.email === process.env.ADMIN_EMAIL} />;
+    if (!session) redirect('/auth/login');
+    return <IdeasClient isAdmin={session.user.email === process.env.ADMIN_EMAIL} />;
 }
