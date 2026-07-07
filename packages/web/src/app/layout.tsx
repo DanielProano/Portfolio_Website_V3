@@ -6,6 +6,12 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AuthButton } from '@/components/AuthButton';
 import './globals.css';
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
+
 export const metadata = {
   title: 'Daniel Proano | Embedded Security Engineer',
   description: 'An embedded security engineer at Purdue University at the intersection of autonomous systems, embedded development, and robotics hardware',

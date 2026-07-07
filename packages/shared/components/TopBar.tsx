@@ -9,7 +9,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 const navButtonStyle = {
     color: '#f0e8e8',
-    fontSize: { xs: '0.6rem', sm: '0.85rem', md: '1.3rem' },
+    fontSize: { xs: '0.72rem', sm: '0.85rem', md: '1.3rem' },
     textTransform: 'none',
     minWidth: 0,
     px: { xs: 0.5, sm: 1, md: 1.5 },
@@ -21,7 +21,7 @@ const navButtonStyle = {
 
 const dropDownStyle = {
     color: '#f0e8e8',
-    fontSize: { xs: '0.6rem', sm: '0.85rem', md: '1.3rem' },
+    fontSize: { xs: '0.72rem', sm: '0.85rem', md: '1.3rem' },
     minWidth: 0,
     textTransform: 'none',
     '&:hover': {
@@ -92,7 +92,7 @@ export function TopBar({ authButton }: { authButton?: ReactNode }) {
                     variant="h6"
                     sx={{
                         fontWeight: 'bold',
-                        fontSize: { xs: '0.6rem', sm: '1.2rem', md: '2rem' },
+                        fontSize: { xs: '0.8rem', sm: '1.2rem', md: '2rem' },
                         letterSpacing: 1,
                     }}
                 >

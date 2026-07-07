@@ -226,7 +226,7 @@ export default function Home() {
               overflow: 'hidden',
               aspectRatio: '4/3',
               width: '100%',
-              minHeight: { xs: '380px', md: '420px', lg: '300px' },
+              minHeight: { xs: '280px', md: '420px', lg: '300px' },
               boxShadow: 3,
             }}
           >

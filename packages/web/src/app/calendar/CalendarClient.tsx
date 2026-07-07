@@ -513,19 +513,23 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     return (
         <Box sx={{
             display: 'flex',
-            height: 'calc(100vh - 72px)',
+            flexDirection: { xs: 'column', sm: 'row' },
+            height: { xs: 'auto', sm: 'calc(100vh - 72px)' },
+            minHeight: '100vh',
             backgroundColor: '#1e2535',
             color: '#f0e8e8',
-            overflow: 'hidden',
+            overflow: { xs: 'visible', sm: 'hidden' },
         }}>
 
             {/* ── Left: Month Grid ── */}
             <Box sx={{
-                width: '32%',
-                borderRight: '1px solid #4a5568',
+                width: { xs: '100%', sm: '32%' },
+                borderRight: { xs: 'none', sm: '1px solid #4a5568' },
+                borderBottom: { xs: '1px solid #4a5568', sm: 'none' },
                 display: 'flex',
                 flexDirection: 'column',
                 p: 2,
+                flexShrink: 0,
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                     <IconButton onClick={prevMonth} sx={{ color: '#f0e8e8' }}>
@@ -603,7 +607,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                     })}
                 </Box>
                 {/* Upcoming Events */}
-                <Box sx={{ mt: 2, flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                <Box sx={{ mt: 2, flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: { xs: 180, sm: 'none' } }}>
                     <Typography sx={{ fontSize: '0.68rem', color: '#718096', fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: 'uppercase' }}>
                         Upcoming
                     </Typography>
@@ -649,7 +653,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             </Box>
 
             {/* ── Right: Timeline + Detail ── */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: { xs: 'calc(100vh - 72px)', sm: 'auto' }, flexShrink: 0 }}>
 
                 {/* Timeline header */}
                 <Box sx={{

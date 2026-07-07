@@ -1,6 +1,17 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    overflow-x: hidden;
+}
+
 body {
     background-color: #252d3d;
-    margin: 0.5rem;
+    margin: 0;
+    padding: 0.5rem;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
 }
 
 nextjs-portal {
