@@ -1031,10 +1031,12 @@ while((RCC->CFGR & RCC_CFGR_SWS_Msk) != (2U << RCC_CFGR_SWS_Pos));
 ```
 ### NVIC 
 
+```c
 void nvic_init(void) {
     NVIC_SetPriority(PendSV_IRQn, 0xFF);
     NVIC_SetPriority(SysTick_IRQn, 0x00);
 }
+```
 
 For the Nested Vector Interrupt Control register,
 we will set the two priority interrupts. Note 
