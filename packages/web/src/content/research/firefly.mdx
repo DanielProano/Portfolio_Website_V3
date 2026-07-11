@@ -1033,10 +1033,138 @@ void nvic_init(void) {
 }
 
 For the Nested Vector Interrupt Control register,
-we will set the two priority iterrupts. Note 
+we will set the two priority interrupts. Note 
 that the lower numbered interrupts have a higher 
 priority. Here, we are setting System Tick 
 interrupt to the highest priority while 
 PendSV (which will be used for context switching) 
 to the lowest priority.
 
+Why do we set context switching to the lowest 
+priority? Well, for that, you need to understand 
+the PendSV interrupt:
+
+### PendSV Interrupt 
+
+Pending Supervisor Call is a software controlled 
+exception. It is intended for context switching.
+It is desgined to never delay time critical tasks
+driven by SysTick or peripheral interrupts. It 
+fires when the processor returns to thread mode.
+
+SysTick decides when a task should run but 
+it does not perform the context switch. 
+This would make SysTick too long and unstable 
+to perform is normal necessary time critical 
+operations. 
+
+On PendSV execution, Cortex M hardware will 
+automatically push the stack frame onto the 
+currently executing stack (MSP or PSP). 
+This frame consists of:
+
+- R0 - R3 
+- R12 
+- LR 
+- PC 
+- xPSR 
+
+You are then responsible for saving any additional 
+registers manually. It will automatically restore 
+this frame of a task it switches too. 
+
+This explains why PendSV must be the lowest 
+priority, because if it wasn't, then 
+a hardware interrupt could be overwritten 
+by PendSV. 
+
+Think about what is happening here. In a hardware 
+interrupt mode, we are in handler mode and 
+MSP represents the current session. PSP is frozen 
+in the last executing task, meaning that 
+if PendSV fires while we are in handler mode, 
+then we will be losing the state of the 
+interrupt registers. 
+
+To conclude main, we will then setup tasks:
+
+```c 
+task_create(&task_one, 1, "task one");
+task_create(&task_two, 2, "task two");
+
+scheduler_start();
+
+return 0;
+``` 
+
+For now, because we haven't written the kernel 
+yet, just do a simple blinking light:
+
+```c 
+while(1) {
+    gpio_toggle_pc13();
+    delay(10000000);
+}
+
+return 0;
+``` 
+
+## Port 
+
+So far I have covered how to setup the 
+hardware abstraction layer, linker script, 
+main function, Reset Handler, and startup code. 
+
+Now we have two remaining tasks: the kernel 
+and the port layer. I have intentionally separated 
+the layers of code to increase portability.
+
+![layers](projects/RTOS/abstraction_layers.svg)
+
+The HAL directly communicates with hardware registers,
+the port folder represents Cortex-M specifics while 
+kernel is our high level scheduling and data structure 
+code. 
+
+Lets setup our task code. We will be using 
+custom 'Task' data types throughout our 
+code in both Kernel & Port, so I created a separate 
+root level folder to hold this shared logic.
+
+First, I defined the maximum number of tasks 
+and the bytes each task should get. For right now,
+these were complete arbitrary, I just needed 
+enough:
+
+```c 
+#define MAX_TASKS 16
+#define TASK_STACK_SIZE 256 
+```
+
+Next, I defined my Task State type:
+
+```c 
+typedef enum {
+    UNINITIALIZED,
+    READY, 
+    RUNNING, 
+    BLOCKED
+} Task_State;
+```
+
+Simple enough. We also need Task type itself:
+
+```c 
+typedef struct {
+    uint32_t *stack_ptr;
+    uint32_t *stack_base;
+    uint32_t stack_size;
+    uint32_t delay_until;
+    Task_State state;
+    uint8_t priority;
+    const char *name;
+} Task;
+```
+
+Several things here, we need to store 
+metadata on each Task we will work with. 
