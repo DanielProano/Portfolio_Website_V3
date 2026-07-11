@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import { getAllPosts } from '@/lib/research';
 import ResearchNav from './ResearchNav';
+import TocSidebar from './TocSidebar';
 import type { ReactNode } from 'react';
 
 export default async function ResearchLayout({ children }: { children: ReactNode }) {
@@ -18,10 +19,14 @@ export default async function ResearchLayout({ children }: { children: ReactNode
           top: '70px',
           alignSelf: 'flex-start',
           maxHeight: { xs: 'none', md: 'calc(100vh - 80px)' },
-          overflowY: { xs: 'visible', md: 'auto' },
+          overflowY: { xs: 'visible', md: 'scroll' },
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'transparent transparent',
+          '&:hover': { scrollbarColor: '#2d3f5e transparent' },
         }}
       >
         <ResearchNav posts={posts} />
+        <TocSidebar />
       </Box>
 
       <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>

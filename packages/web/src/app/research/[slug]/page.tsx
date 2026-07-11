@@ -6,19 +6,39 @@ import { getAllPosts, getPost } from '@/lib/research';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+function extractText(node: React.ReactNode): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join('');
+  if (node !== null && typeof node === 'object' && 'props' in (node as object)) {
+    return extractText((node as React.ReactElement).props.children);
+  }
+  return '';
+}
+
+
 const mdxComponents = {
   h1: ({ children }: { children?: React.ReactNode }) => (
-    <Typography variant="h3" sx={{ mt: 4, mb: 2, fontWeight: 700, color: '#e8f0ff' }}>
+    <Typography variant="h3" id={slugify(extractText(children))} sx={{ mt: 4, mb: 2, fontWeight: 700, color: '#e8f0ff', scrollMarginTop: '80px' }}>
       {children}
     </Typography>
   ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <Typography variant="h4" sx={{ mt: 4, mb: 1.5, fontWeight: 600, color: '#c8d8f0', borderBottom: '1px solid #2d3f5e', pb: 1 }}>
+    <Typography variant="h4" id={slugify(extractText(children))} sx={{ mt: 4, mb: 1.5, fontWeight: 600, color: '#c8d8f0', borderBottom: '1px solid #2d3f5e', pb: 1, scrollMarginTop: '80px' }}>
       {children}
     </Typography>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <Typography variant="h5" sx={{ mt: 3, mb: 1, fontWeight: 600, color: '#b0c4e0' }}>
+    <Typography variant="h5" id={slugify(extractText(children))} sx={{ mt: 3, mb: 1, fontWeight: 600, color: '#b0c4e0', scrollMarginTop: '80px' }}>
       {children}
     </Typography>
   ),
@@ -317,6 +337,7 @@ export default async function ResearchPostPage({ params }: { params: { slug: str
   return (
     <Box sx={{ maxWidth: '720px', width: '100%', py: 3, px: { xs: 3, md: 4 } }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
       {/* Article header */}
       <Box sx={{ mb: 4 }}>
         <Typography
