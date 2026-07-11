@@ -825,12 +825,17 @@ also need to clear bit 27:
 
 ```c 
 void gpio_init_pc13(void) {
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+
     GPIOC->MODER &= ~(3U << 26);
 
     uint32_t enable_output_mode = 1U << 26;
     GPIOC->MODER |= enable_output_mode;
 }
 ```
+
+We also need to turn on the clock 
+for the GPIO port before we configure it.
 
 Finally, we would like to turn the light on and 
 off again. Lets go to the output data register (ODR),
@@ -937,22 +942,43 @@ PLL Clock Input = 16 MHz
 PLLM = 16
 PLLN = 336
 
-Perfect! Now encode those values!
+Perfect! Now PLL is configured and ready but
+nothing is using it yet. This leads us to:
 
+```c 
+/* Zero out AHB so system clock not divided*/
+RCC->CFGR &= ~(RCC_CFGR_HPRE);
 
+/* Reset APB1 */
+RCC->CFGR &= ~(RCC_CFGR_PPRE1);
 
+/*  APB1 cannot exceed 42 MHz, since
+    we are running at 84, divide by 2 */
+RCC->CFGR |= (4U << RCC_CFGR_PPRE1_Pos);
 
-Page 46 of [Reference Manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf).
-Now that we are using PLL with a different 
-clock frequency than 16 MHz, the hardware will 
-not be able to read flash memory without additional 
-configuration. We need to intentially slow down 
-to read flash memory, by introducing latency! 
+/*  Reset APB2 & keep zeroed bc. APB2 can
+    handle 84MHz */
+RCC->CFGR &= ~(RCC_CFGR_PPRE2);
+```
 
-With a voltage range of 3.3V and 84 MHz clock 
-frequency, the docs recommend we use 2 waiting 
-states. To do this, we need to configure the 
-ACR register:
+As you will have gathered from the comments, 
+we are now configuring the Reset & Control Register.
+Follow page 107 of the [reference](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf),
+you will find that we have several options of bits 
+to configure. 
+
+First and foremost, while already set at this point,
+we will explicitly declare the AHB to be running 
+at its normal 84 MHz speed. HPRE is the AHB prescaler. 
+AHB is out fast data 
+bus where the CPU itself lives on. It will be 
+needed for later projects the RTOS is used on. 
+
+APB1 & APB2 are slower data busses for peripherals
+that don't need to run at full speed. And as such 
+we will set their prescalers (PPRE1) to a reduced 
+rate of 42 MHz (its max according to the docs) 
+while keeping PPRE2 at its normal 84 MHz rate.
 
 ```c
 /* Reset wait states*/
@@ -961,3 +987,56 @@ FLASH->ACR &= ~(FLASH_ACR_LATENCY_Msk);
 /* 2 wait states for flash at 3.3V & 84 MHz*/
 FLASH->ACR |= (2U << FLASH_ACR_LATENCY_Pos);
 ``` 
+
+Page 46 of [Reference Manual](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf).
+Now that we are using PLL with a different 
+clock frequency than 16 MHz, the hardware will 
+not be able to read flash memory without additional 
+configuration. We need to intentionally slow down 
+to read flash memory, by introducing latency! 
+
+With a voltage range of 3.3V and 84 MHz clock 
+frequency, the docs recommend we use 2 waiting 
+states. To do this, we need to configure the 
+ACR register as seen above!
+
+Note, it is ***essential*** that we configure 
+flash wait states before we turn on PLL. Otherwise,
+we will get corrupted states.
+
+Turn on PLL and wait for hardware to 
+lock it:
+
+```c 
+RCC->CR |= RCC_CR_PLLON;
+while(!(RCC->CR & RCC_CR_PLLRDY));
+```
+
+Finally, we need to 
+set SysClock as PLL:
+
+```c 
+/* Reset CFGR*/
+RCC->CFGR &= ~(RCC_CFGR_SW_Msk);
+
+/* Select PLL as Sys clock*/
+RCC->CFGR |= (2U << RCC_CFGR_SW_Pos);
+
+/* Wait for System Clock Switch*/
+while((RCC->CFGR & RCC_CFGR_SWS_Msk) != (2U << RCC_CFGR_SWS_Pos));
+```
+### NVIC 
+
+void nvic_init(void) {
+    NVIC_SetPriority(PendSV_IRQn, 0xFF);
+    NVIC_SetPriority(SysTick_IRQn, 0x00);
+}
+
+For the Nested Vector Interrupt Control register,
+we will set the two priority iterrupts. Note 
+that the lower numbered interrupts have a higher 
+priority. Here, we are setting System Tick 
+interrupt to the highest priority while 
+PendSV (which will be used for context switching) 
+to the lowest priority.
+
