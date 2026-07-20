@@ -2,24 +2,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafe } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     const session = await getSessionSafe();
     if (!session?.user?.sub) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const userId = session.user.sub;
 
+    const { searchParams } = new URL(request.url);
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+
     try {
         const pool = getPool();
-        const result = await pool.query(
-            `SELECT id, title, description, status, priority,
-              TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
-              TO_CHAR(due_time, 'HH24:MI') AS due_time,
-              sort_order, created_at
-             FROM tasks WHERE user_id = $1
-             ORDER BY sort_order ASC NULLS LAST, created_at DESC`,
-            [userId]
-        );
+        const result = from && to
+            ? await pool.query(
+                `SELECT id, title, description, status, priority,
+                  TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+                  TO_CHAR(due_time, 'HH24:MI') AS due_time,
+                  sort_order, created_at
+                 FROM tasks WHERE user_id = $1
+                   AND due_date >= $2::date AND due_date <= $3::date
+                 ORDER BY due_date ASC, due_time ASC NULLS LAST`,
+                [userId, from, to]
+            )
+            : await pool.query(
+                `SELECT id, title, description, status, priority,
+                  TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+                  TO_CHAR(due_time, 'HH24:MI') AS due_time,
+                  sort_order, created_at
+                 FROM tasks WHERE user_id = $1
+                 ORDER BY sort_order ASC NULLS LAST, created_at DESC`,
+                [userId]
+            );
         return NextResponse.json({ tasks: result.rows });
     } catch (err) {
         console.error('[GET /api/tasks]', err);

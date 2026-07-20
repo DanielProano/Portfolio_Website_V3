@@ -113,6 +113,13 @@ function getEventHeight(event: CalendarEvent, hourHeight: number): number {
     return Math.max((endDec - startDec) * hourHeight - 2, 20);
 }
 
+function formatDueTimeStr(hhmm: string): string {
+    const [h, m] = hhmm.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${displayH}:${String(m).padStart(2, '0')} ${period}`;
+}
+
 function formatUpcomingDate(iso: string): string {
     const d = new Date(iso);
     const now = new Date();
@@ -153,6 +160,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const [quickNotes, setQuickNotes] = useState('');
     const [hourHeight, setHourHeight] = useState(44);
     const [dragDropDay, setDragDropDay] = useState<Date | null>(null);
+    const [upcomingTasks, setUpcomingTasks] = useState<CalendarTask[]>([]);
 
     const timelineScrollRef = useRef<HTMLDivElement>(null);
     const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -178,6 +186,23 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     useEffect(() => {
         fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
     }, [viewMonth, fetchEvents]);
+
+    const fetchUpcomingTasks = useCallback(async () => {
+        try {
+            const now = new Date();
+            const from = formatDateInput(now);
+            const twoMonthsOut = new Date(now.getFullYear(), now.getMonth() + 2, now.getDate());
+            const to = formatDateInput(twoMonthsOut);
+            const res = await fetch(`/api/tasks?from=${from}&to=${to}`);
+            if (!res.ok) { setUpcomingTasks([]); return; }
+            const data = await res.json();
+            setUpcomingTasks((data.tasks ?? []).filter((t: CalendarTask) => t.status !== 'done'));
+        } catch {
+            setUpcomingTasks([]);
+        }
+    }, []);
+
+    useEffect(() => { fetchUpcomingTasks(); }, [fetchUpcomingTasks]);
 
     // Keep ref in sync so debounced saves always use the latest event data
     useEffect(() => { selectedEventRef.current = selectedEvent; }, [selectedEvent]);
@@ -606,13 +631,13 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         );
                     })}
                 </Box>
-                {/* Upcoming Events */}
-                <Box sx={{ mt: 2, flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: { xs: 180, sm: 'none' } }}>
+                {/* Upcoming Events + Tasks */}
+                <Box sx={{ mt: 2, flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: { xs: 360, sm: 'none' } }}>
                     <Typography sx={{ fontSize: '0.68rem', color: '#718096', fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: 'uppercase' }}>
                         Upcoming
                     </Typography>
                     {upcomingEvents.length === 0 ? (
-                        <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                        <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic', mb: 1.5 }}>
                             No upcoming events this month
                         </Typography>
                     ) : (
@@ -648,6 +673,66 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 </Box>
                             </Box>
                         ))
+                    )}
+
+                    <Typography sx={{ fontSize: '0.68rem', color: '#718096', fontWeight: 700, letterSpacing: 0.8, mt: 2, mb: 1, textTransform: 'uppercase' }}>
+                        Tasks · Next 2 Months
+                    </Typography>
+                    {upcomingTasks.length === 0 ? (
+                        <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                            No upcoming tasks
+                        </Typography>
+                    ) : (
+                        upcomingTasks.map(task => {
+                            const color = TASK_PRIORITY_COLORS[task.priority];
+                            const [ty, tm, td] = (task.due_date as string).split('-').map(Number);
+                            const dueDate = new Date(ty, tm - 1, td);
+                            const isToday2 = isSameDay(dueDate, today);
+                            const tomorrow2 = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+                            const isTomorrow2 = isSameDay(dueDate, tomorrow2);
+                            let dateLabel = isToday2
+                                ? 'Today'
+                                : isTomorrow2
+                                    ? 'Tomorrow'
+                                    : dueDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                            if (task.due_time) dateLabel += ` · ${formatDueTimeStr(task.due_time)}`;
+                            const isInProgress = task.status === 'in_progress';
+                            return (
+                                <Box
+                                    key={task.id}
+                                    onClick={() => router.push('/tasks')}
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 1,
+                                        py: 0.6,
+                                        px: 0.75,
+                                        mb: 0.25,
+                                        borderRadius: 1.5,
+                                        cursor: 'pointer',
+                                        '&:hover': { backgroundColor: '#252f42' },
+                                        transition: 'background-color 0.15s',
+                                    }}
+                                >
+                                    <Box sx={{ width: 3, minHeight: 32, borderRadius: '2px', backgroundColor: color, flexShrink: 0, mt: '2px' }} />
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <Typography sx={{ fontSize: '0.78rem', color: '#f0e8e8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {task.title}
+                                            </Typography>
+                                            {isInProgress && (
+                                                <Box sx={{ fontSize: '0.6rem', color: '#ffb74d', border: '1px solid #ffb74d44', borderRadius: '3px', px: '3px', lineHeight: 1.6, flexShrink: 0 }}>
+                                                    in progress
+                                                </Box>
+                                            )}
+                                        </Box>
+                                        <Typography sx={{ fontSize: '0.68rem', color: '#718096' }}>
+                                            {dateLabel}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            );
+                        })
                     )}
                 </Box>
             </Box>
