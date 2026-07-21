@@ -530,8 +530,21 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     const now = new Date();
     const upcomingEvents = events
         .filter(e => new Date(e.start_time) >= now)
-        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-        .slice(0, 5);
+        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+    type UpcomingItem = { kind: 'event'; data: CalendarEvent } | { kind: 'task'; data: CalendarTask };
+    const combinedUpcoming: UpcomingItem[] = [
+        ...upcomingEvents.map(e => ({ kind: 'event' as const, data: e })),
+        ...upcomingTasks.map(t => ({ kind: 'task' as const, data: t })),
+    ].sort((a, b) => {
+        const getTime = (item: UpcomingItem) => {
+            if (item.kind === 'event') return new Date(item.data.start_time).getTime();
+            const [y, mo, d] = (item.data.due_date as string).split('-').map(Number);
+            const [h, m] = item.data.due_time ? item.data.due_time.split(':').map(Number) : [0, 0];
+            return new Date(y, mo - 1, d, h, m).getTime();
+        };
+        return getTime(a) - getTime(b);
+    });
 
     // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -631,75 +644,67 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         );
                     })}
                 </Box>
-                {/* Upcoming Events + Tasks */}
+                {/* Upcoming Events + Tasks — unified list */}
                 <Box sx={{ mt: 2, flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: { xs: 360, sm: 'none' } }}>
                     <Typography sx={{ fontSize: '0.68rem', color: '#718096', fontWeight: 700, letterSpacing: 0.8, mb: 1, textTransform: 'uppercase' }}>
                         Upcoming
                     </Typography>
-                    {upcomingEvents.length === 0 ? (
-                        <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic', mb: 1.5 }}>
-                            No upcoming events this month
-                        </Typography>
-                    ) : (
-                        upcomingEvents.map(event => (
-                            <Box
-                                key={event.id}
-                                onClick={() => {
-                                    const d = new Date(event.start_time);
-                                    setSelectedDay(d);
-                                    setSelectedEvent(event);
-                                }}
-                                sx={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: 1,
-                                    py: 0.6,
-                                    px: 0.75,
-                                    mb: 0.25,
-                                    borderRadius: 1.5,
-                                    cursor: 'pointer',
-                                    '&:hover': { backgroundColor: '#252f42' },
-                                    transition: 'background-color 0.15s',
-                                }}
-                            >
-                                <Box sx={{ width: 3, minHeight: 32, borderRadius: '2px', backgroundColor: event.color, flexShrink: 0, mt: '2px' }} />
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography sx={{ fontSize: '0.78rem', color: '#f0e8e8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {event.title}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '0.68rem', color: '#718096' }}>
-                                        {formatUpcomingDate(event.start_time)}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        ))
-                    )}
-
-                    <Typography sx={{ fontSize: '0.68rem', color: '#718096', fontWeight: 700, letterSpacing: 0.8, mt: 2, mb: 1, textTransform: 'uppercase' }}>
-                        Tasks · Next 2 Months
-                    </Typography>
-                    {upcomingTasks.length === 0 ? (
+                    {combinedUpcoming.length === 0 ? (
                         <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic' }}>
-                            No upcoming tasks
+                            Nothing upcoming
                         </Typography>
                     ) : (
-                        upcomingTasks.map(task => {
+                        combinedUpcoming.map(item => {
+                            if (item.kind === 'event') {
+                                const event = item.data;
+                                return (
+                                    <Box
+                                        key={`event-${event.id}`}
+                                        onClick={() => {
+                                            const d = new Date(event.start_time);
+                                            setSelectedDay(d);
+                                            setSelectedEvent(event);
+                                        }}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: 1,
+                                            py: 0.6,
+                                            px: 0.75,
+                                            mb: 0.25,
+                                            borderRadius: 1.5,
+                                            cursor: 'pointer',
+                                            '&:hover': { backgroundColor: '#252f42' },
+                                            transition: 'background-color 0.15s',
+                                        }}
+                                    >
+                                        <Box sx={{ width: 3, minHeight: 32, borderRadius: '2px', backgroundColor: event.color, flexShrink: 0, mt: '2px' }} />
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography sx={{ fontSize: '0.78rem', color: '#f0e8e8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {event.title}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: '0.68rem', color: '#718096' }}>
+                                                {formatUpcomingDate(event.start_time)}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                );
+                            }
+                            const task = item.data;
                             const color = TASK_PRIORITY_COLORS[task.priority];
                             const [ty, tm, td] = (task.due_date as string).split('-').map(Number);
                             const dueDate = new Date(ty, tm - 1, td);
-                            const isToday2 = isSameDay(dueDate, today);
                             const tomorrow2 = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-                            const isTomorrow2 = isSameDay(dueDate, tomorrow2);
-                            let dateLabel = isToday2
+                            let dateLabel = isSameDay(dueDate, today)
                                 ? 'Today'
-                                : isTomorrow2
+                                : isSameDay(dueDate, tomorrow2)
                                     ? 'Tomorrow'
-                                    : dueDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                                    : dueDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
                             if (task.due_time) dateLabel += ` · ${formatDueTimeStr(task.due_time)}`;
                             const isInProgress = task.status === 'in_progress';
                             return (
                                 <Box
-                                    key={task.id}
+                                    key={`task-${task.id}`}
                                     onClick={() => router.push('/tasks')}
                                     sx={{
                                         display: 'flex',
