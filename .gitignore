@@ -1,7 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+# No leading slash: must match packages/*/node_modules too, not just the root.
+node_modules/
 /.pnp
 .pnp.js
 

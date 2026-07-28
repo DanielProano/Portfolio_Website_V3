@@ -101,6 +101,49 @@ function initSchema(pool: Pool) {
         )
     `).catch(err => console.error('[db] ideas table error:', err));
 
+    // Folder names are sealed too — a folder called "Pink Floyd" would leak as much
+    // as a song title. Must be created before audio_tracks, which references it.
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS audio_folders (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name_enc TEXT NOT NULL,
+            sort_order INTEGER,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `).catch(err => console.error('[db] audio_folders table error:', err));
+
+    // Only the song name is stored, and only as an encrypted blob. Everything else
+    // here is required to fetch, decode, or order the track — no artist, no album.
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS audio_tracks (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            folder_id INTEGER NOT NULL REFERENCES audio_folders(id) ON DELETE CASCADE,
+            title_enc TEXT NOT NULL,
+            duration_seconds INTEGER,
+            r2_key TEXT NOT NULL UNIQUE,
+            mime_type TEXT DEFAULT 'audio/mpeg',
+            size_bytes BIGINT,
+            sort_order INTEGER,
+            enc_v SMALLINT NOT NULL DEFAULT 1,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `).catch(err => console.error('[db] audio_tracks table error:', err));
+
+    // Per-user KDF salt + verifier. Never holds the passphrase or the derived key —
+    // the verifier is just a known string sealed under that key so the client can
+    // tell a wrong passphrase from a corrupt file.
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS audio_keys (
+            user_id TEXT PRIMARY KEY,
+            kdf_salt TEXT NOT NULL,
+            verifier TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `).catch(err => console.error('[db] audio_keys table error:', err));
+
     pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
