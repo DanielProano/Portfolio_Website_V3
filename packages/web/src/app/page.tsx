@@ -132,10 +132,10 @@ export default function Home() {
             alignSelf: 'flex-start',
           }}
         >
-          <Box sx={{ mb: 2, borderRadius: 1, aspectRatio: '1', maxHeight: { xs: 260, md: 'none' }, overflow: 'hidden' }}>
+          <Box sx={{ mb: 2, borderRadius: 1, aspectRatio: '1', overflow: 'hidden' }}>
             <Image
               src="/profile/self_autonomous.jpg"
-              alt="Profile"
+              alt="Daniel Proano headshot"
               width={450}
               height={450}
               priority
@@ -218,7 +218,7 @@ export default function Home() {
         </Box>
 
         {/* Slideshow */}
-        <Box sx={{ flex: 1, minWidth: 0, maxWidth: { xl: '750px' }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ flex: 1, minWidth: 0, maxWidth: { md: '750px' }, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box
             sx={{
               position: 'relative',
@@ -226,7 +226,6 @@ export default function Home() {
               overflow: 'hidden',
               aspectRatio: '4/3',
               width: '100%',
-              minHeight: { xs: '280px', md: '420px', lg: '300px' },
               boxShadow: 3,
             }}
           >
@@ -241,6 +240,10 @@ export default function Home() {
 
             <Box
               onClick={handlePrev}
+              role="button"
+              tabIndex={0}
+              aria-label="Previous slide"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handlePrev(); } }}
               sx={{
                 position: 'absolute',
                 left: 8,
@@ -264,6 +267,10 @@ export default function Home() {
 
             <Box
               onClick={handleNext}
+              role="button"
+              tabIndex={0}
+              aria-label="Next slide"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNext(); } }}
               sx={{
                 position: 'absolute',
                 right: 8,
@@ -308,6 +315,11 @@ export default function Home() {
               <Box
                 key={index}
                 onClick={() => setCurrentIndex(index)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Go to slide ${index + 1}`}
+                aria-current={index === currentIndex}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrentIndex(index); } }}
                 sx={{
                   width: index === currentIndex ? 30 : 12,
                   height: 12,
@@ -340,6 +352,15 @@ export default function Home() {
             <Box
               key={index}
               onClick={() => project.link && window.open(project.link, '_blank')}
+              role={project.link ? 'link' : undefined}
+              tabIndex={project.link ? 0 : undefined}
+              aria-label={project.link ? `${project.title} (opens in new tab)` : undefined}
+              onKeyDown={(e) => {
+                if (project.link && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  window.open(project.link, '_blank');
+                }
+              }}
               sx={{
                 backgroundColor: '#2a3550',
                 border: '1px solid #3a4d6b',
@@ -358,6 +379,7 @@ export default function Home() {
                     src={project.image}
                     alt={project.title}
                     fill
+                    sizes="(min-width: 1200px) 33vw, 100vw"
                     style={{ objectFit: 'cover' }}
                   />
                 </Box>

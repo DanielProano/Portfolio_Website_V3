@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, ReactNode } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Select, MenuItem, IconButton } from '@mui/material';
+import { useState, useEffect, useRef, ReactNode } from 'react';
+import { AppBar, Toolbar, Typography, Button, Box, Select, MenuItem, IconButton, SelectChangeEvent } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
@@ -51,7 +51,7 @@ const iconStyle = {
 export function TopBar({ authButton, isLoggedIn }: { authButton?: ReactNode; isLoggedIn?: boolean }) {
     const router = useRouter();
     const [isVisible, setIsVisible] = useState(true);
-    const [lastScrollY, setLastScrollY] = useState(0);
+    const lastScrollY = useRef(0);
     const [selectedOption, setSelectedOption] = useState('');
     const [openAboutMenu, setOpenAboutMenu] = useState(false);
     const [openProjectMenu, setOpenProjectMenu] = useState(false);
@@ -59,15 +59,15 @@ export function TopBar({ authButton, isLoggedIn }: { authButton?: ReactNode; isL
     useEffect(() => {
         const handleScroll = () => {
             const currentScrollY = window.scrollY;
-            setIsVisible(currentScrollY < lastScrollY || currentScrollY < 50);
-            setLastScrollY(currentScrollY);
+            setIsVisible(currentScrollY < lastScrollY.current || currentScrollY < 50);
+            lastScrollY.current = currentScrollY;
         };
 
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
-    }, [lastScrollY]);
+    }, []);
 
-    const handleSelectChange = (event) => {
+    const handleSelectChange = (event: SelectChangeEvent) => {
         const value = event.target.value;
         setSelectedOption(value);
         
@@ -100,7 +100,7 @@ export function TopBar({ authButton, isLoggedIn }: { authButton?: ReactNode; isL
                 </Typography>
 
                 {/* Column 2: Nav — always centered */}
-                <Box sx={{ display: 'flex', gap: { xs: 0, sm: 1 } }}>
+                <Box component="nav" aria-label="Main navigation" sx={{ display: 'flex', gap: { xs: 0, sm: 1 } }}>
                     <Button
                         sx={navButtonStyle}
                         onClick={() => { router.push('/'); setSelectedOption(''); }}

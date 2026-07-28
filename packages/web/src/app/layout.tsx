@@ -14,6 +14,7 @@ export const viewport = {
 };
 
 export const metadata = {
+  metadataBase: new URL('https://dannyproano.com'),
   title: 'Daniel Proano | Embedded Security Engineer',
   description: 'An embedded security engineer at Purdue University at the intersection of autonomous systems, embedded development, and robotics hardware',
   openGraph: {

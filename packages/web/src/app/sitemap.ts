@@ -16,7 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         { url: baseUrl, lastModified: buildDate, changeFrequency: 'monthly', priority: 1.0 },
         { url: `${baseUrl}/research`, lastModified: buildDate, changeFrequency: 'weekly', priority: 0.9 },
         ...researchPosts,
-        { url: `${baseUrl}/chess`, lastModified: buildDate, changeFrequency: 'monthly', priority: 0.8 },
-        { url: `${baseUrl}/password`, lastModified: buildDate, changeFrequency: 'monthly', priority: 0.8 },
+        { url: `${baseUrl}/chess/board`, lastModified: buildDate, changeFrequency: 'monthly', priority: 0.8 },
+        { url: `${baseUrl}/password/login`, lastModified: buildDate, changeFrequency: 'monthly', priority: 0.8 },
     ];
 }

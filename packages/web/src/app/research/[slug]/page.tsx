@@ -122,6 +122,8 @@ const mdxComponents = {
         component="img"
         src={src}
         alt={alt}
+        loading="lazy"
+        decoding="async"
         sx={{
           display: 'block',
           maxWidth: '100%',
