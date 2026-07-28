@@ -48,7 +48,7 @@ const iconStyle = {
     }
 };
 
-export function TopBar({ authButton, isLoggedIn }: { authButton?: ReactNode; isLoggedIn?: boolean }) {
+export function TopBar({ authButton, isLoggedIn, isAdmin }: { authButton?: ReactNode; isLoggedIn?: boolean; isAdmin?: boolean }) {
     const router = useRouter();
     const [isVisible, setIsVisible] = useState(true);
     const lastScrollY = useRef(0);
@@ -144,6 +144,7 @@ export function TopBar({ authButton, isLoggedIn }: { authButton?: ReactNode; isL
                             <MenuItem value="tasks">Tasks</MenuItem>
                             <MenuItem value="flashcards">Flashcards</MenuItem>
                             <MenuItem value="ideas">Ideas</MenuItem>
+                            {isAdmin && <MenuItem value="audio">Audio</MenuItem>}
                         </Select>
                     )}
                 </Box>

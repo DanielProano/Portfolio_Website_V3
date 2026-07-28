@@ -14,3 +14,14 @@ export async function getSessionSafe() {
         return null;
     }
 }
+
+/**
+ * Session for the admin only — every other signed-in user gets null.
+ * Fails closed: if ADMIN_EMAIL is unset, nobody is admin.
+ */
+export async function getAdminSession() {
+    const session = await getSessionSafe();
+    if (!session?.user?.sub) return null;
+    if (!process.env.ADMIN_EMAIL || session.user.email !== process.env.ADMIN_EMAIL) return null;
+    return session;
+}

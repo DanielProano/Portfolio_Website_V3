@@ -16,8 +16,5 @@
     "devDependencies": {
         "@types/react": "^18.3.29",
         "@types/react-dom": "^18.3.7"
-    },
-    "pnpm": {
-        "onlyBuiltDependencies": ["esbuild"]
     }
 }
