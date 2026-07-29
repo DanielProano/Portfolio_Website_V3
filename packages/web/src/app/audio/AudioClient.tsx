@@ -27,26 +27,19 @@ import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
+import RepeatOneIcon from '@mui/icons-material/RepeatOne';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
+import CloseIcon from '@mui/icons-material/Close';
 import { derive_key } from '@/context/Encrypt';
-import { encryptFile, decryptToBlob, sealText, openText, VERIFIER_PLAINTEXT } from '@/lib/audioCrypto';
+import { encryptFile, sealText, openText, VERIFIER_PLAINTEXT } from '@/lib/audioCrypto';
 import { saveKey, loadKey, clearKey } from '@/lib/keyStore';
-
-type RawFolder = {
-    id: number; name_enc: string; sort_order: number | null;
-    created_at: string; track_count: number;
-};
-type Folder = Omit<RawFolder, 'name_enc'> & { name: string };
-
-type RawTrack = {
-    id: number; folder_id: number; title_enc: string;
-    duration_seconds: number | null; mime_type: string; size_bytes: number | null;
-    sort_order: number | null; enc_v: number; created_at: string;
-};
-type Track = Omit<RawTrack, 'title_enc'> & { title: string };
+import { useAudioPlayer } from '@/context/AudioPlayerContext';
+import type { RawFolder, Folder, RawTrack, Track } from './types';
 
 type Staged = { file: File; title: string; folderId: number | '' };
 type Upload = { title: string; pct: number; phase: 'encrypting' | 'uploading'; error?: string };
-type Loading = { id: number; phase: 'fetching' | 'decrypting'; pct: number };
 type FolderDialog = { mode: 'new' } | { mode: 'rename'; folder: Folder } | null;
 
 type FolderDrag = { id: number; originalIndex: number; deltaY: number; isDragging: boolean };
@@ -117,22 +110,8 @@ function putWithProgress(
     });
 }
 
-function getWithProgress(url: string, onProgress: (pct: number) => void): Promise<ArrayBuffer> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url);
-        xhr.responseType = 'arraybuffer';
-        xhr.onprogress = e => {
-            if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => xhr.status >= 200 && xhr.status < 300
-            ? resolve(xhr.response as ArrayBuffer) : reject(new Error(`R2 refused the download (${xhr.status})`));
-        xhr.onerror = () => reject(new Error('Network error during download'));
-        xhr.send();
-    });
-}
-
 export function AudioClient() {
+    const audioPlayer = useAudioPlayer();
     // Key state. Lives here and, if remembered, in IndexedDB. Never on the server.
     const [key, setKey] = useState<CryptoKey | null>(null);
     const [salt, setSalt] = useState<string | null>(null);
@@ -170,39 +149,35 @@ export function AudioClient() {
     const [staged, setStaged] = useState<Staged[] | null>(null);
     const [uploads, setUploads] = useState<Upload[]>([]);
 
-    // Player
-    const [loadingTrack, setLoadingTrack] = useState<Loading | null>(null);
-    const [currentId, setCurrentId] = useState<number | null>(null);
-    const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [position, setPosition] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(1);
-    const [muted, setMuted] = useState(false);
-    const [seeking, setSeeking] = useState(false);
+    const {
+        currentTrack, currentFolderId, isPlaying, position, duration, volume, muted, loadingTrack,
+        playerError, queue, shuffle, repeatOne, play, playFromQueue, step, nudge, togglePlay,
+        stopPlayback, previewSeek, commitSeek, setVolume, setMuted, toggleShuffle, toggleRepeatOne,
+        addToQueue, playNext, removeFromQueue, retagFolder, syncQueue,
+    } = audioPlayer;
 
     const [editingId, setEditingId] = useState<number | null>(null);
     const [draftTitle, setDraftTitle] = useState('');
     const [draftFolderId, setDraftFolderId] = useState<number | ''>('');
+    const [queueOpen, setQueueOpen] = useState(false);
 
-    const audioRef = useRef<HTMLAudioElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const uploadTargetRef = useRef<number | ''>('');
-    const blobUrlRef = useRef<string | null>(null);
-    const playGenRef = useRef(0);
 
-    const queue = currentFolderId != null ? (tracksByFolder[currentFolderId] ?? []) : [];
-    const currentTrack = queue.find(t => t.id === currentId) ?? null;
     const currentFolder = folders.find(f => f.id === currentFolderId) ?? null;
     const upNext = useMemo(() => {
         if (!currentTrack) return [];
         const i = queue.findIndex(t => t.id === currentTrack.id);
-        return i === -1 ? [] : queue.slice(i + 1, i + 4);
+        return i === -1 ? [] : queue.slice(i + 1);
     }, [queue, currentTrack]);
 
-    useEffect(() => () => {
-        if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-    }, []);
+    // Keeps every loaded folder's slice of the queue (and the current track's live
+    // title) in sync with library edits — reorders, renames, moves, deletes.
+    useEffect(() => {
+        for (const [folderIdStr, list] of Object.entries(tracksByFolder)) {
+            syncQueue(Number(folderIdStr), list);
+        }
+    }, [tracksByFolder, syncQueue]);
 
     // ── loading ──────────────────────────────────────────────────────────────────
 
@@ -268,6 +243,7 @@ export function AudioClient() {
                 // Validate a restored key against the server verifier before trusting it.
                 if (await openText(stored, info.verifier) === VERIFIER_PLAINTEXT) {
                     setKey(stored);
+                    audioPlayer.setKey(stored);
                     await initLibrary(stored);
                 } else {
                     await clearKey();
@@ -307,6 +283,7 @@ export function AudioClient() {
 
             if (remember) await saveKey(k);
             setKey(k);
+            audioPlayer.setKey(k);
             setPassphrase('');
             setConfirmPass('');
             await initLibrary(k);
@@ -442,7 +419,7 @@ export function AudioClient() {
             await loadFolders(key);
             await loadFolderTracks(sourceFolderId, key);
             await loadFolderTracks(targetFolderId, key);
-            if (currentId === dragged.id) setCurrentFolderId(targetFolderId);
+            if (currentTrack?.id === dragged.id) retagFolder(targetFolderId);
             return;
         }
 
@@ -467,98 +444,12 @@ export function AudioClient() {
         return moveItem(list, trackDrag.originalIndex, toIdx);
     };
 
-    // ── playback ─────────────────────────────────────────────────────────────────
-
-    function stopPlayback() {
-        playGenRef.current++;
-        audioRef.current?.pause();
-        if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
-        audioRef.current?.removeAttribute('src');
-        setCurrentId(null);
-        setCurrentFolderId(null);
-        setIsPlaying(false);
-        setPosition(0);
-        setDuration(0);
-    }
-
-    const play = useCallback(async (track: Track) => {
-        const el = audioRef.current;
-        if (!el || !key) return;
-        if (currentId === track.id && el.src) { await el.play(); return; }
-
-        const gen = ++playGenRef.current;
-        setError(null);
-        setLoadingTrack({ id: track.id, phase: 'fetching', pct: 0 });
-        try {
-            const urlRes = await fetch(`/api/audio/${track.id}/play`);
-            if (!urlRes.ok) throw new Error((await urlRes.json()).error ?? 'Could not get playback URL');
-            const { url } = await urlRes.json();
-
-            const ciphertext = await getWithProgress(url, pct => {
-                if (playGenRef.current === gen) setLoadingTrack({ id: track.id, phase: 'fetching', pct });
-            });
-            if (playGenRef.current !== gen) return;
-
-            setLoadingTrack({ id: track.id, phase: 'decrypting', pct: 0 });
-            const blob = await decryptToBlob(ciphertext, key, track.mime_type || 'audio/mpeg', f => {
-                if (playGenRef.current === gen) {
-                    setLoadingTrack({ id: track.id, phase: 'decrypting', pct: Math.round(f * 100) });
-                }
-            });
-            if (playGenRef.current !== gen) return;
-
-            if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-            blobUrlRef.current = URL.createObjectURL(blob);
-            el.src = blobUrlRef.current;
-            setCurrentId(track.id);
-            setCurrentFolderId(track.folder_id);
-            setPosition(0);
-            await el.play();
-        } catch (e) {
-            if (playGenRef.current !== gen) return;
-            setError(
-                e instanceof Error && e.name === 'OperationError'
-                    ? 'Could not decrypt this song — it may have been uploaded under a different passphrase.'
-                    : e instanceof Error ? e.message : 'Playback failed'
-            );
-            setIsPlaying(false);
-        } finally {
-            if (playGenRef.current === gen) setLoadingTrack(null);
-        }
-    }, [key, currentId]);
-
-    /** A folder is the queue, so next/previous stay inside it. */
-    const step = useCallback((delta: number) => {
-        if (currentFolderId == null || currentId == null) return;
-        const list = tracksByFolder[currentFolderId] ?? [];
-        const i = list.findIndex(t => t.id === currentId);
-        if (i === -1 || list.length === 0) return;
-        play(list[(i + delta + list.length) % list.length]);
-    }, [currentFolderId, currentId, tracksByFolder, play]);
-
-    const nudge = useCallback((seconds: number) => {
-        const el = audioRef.current;
-        if (!el || !currentTrack) return;
-        el.currentTime = Math.max(0, Math.min(el.duration || 0, el.currentTime + seconds));
-    }, [currentTrack]);
-
-    const togglePlay = useCallback(() => {
-        const el = audioRef.current;
-        if (!el) return;
-        if (isPlaying) el.pause();
-        else if (currentTrack) play(currentTrack);
-    }, [isPlaying, currentTrack, play]);
-
-    useEffect(() => {
-        if (!('mediaSession' in navigator) || !currentTrack) return;
-        navigator.mediaSession.metadata = new MediaMetadata({ title: currentTrack.title });
-        navigator.mediaSession.setActionHandler('play', () => audioRef.current?.play());
-        navigator.mediaSession.setActionHandler('pause', () => audioRef.current?.pause());
-        navigator.mediaSession.setActionHandler('nexttrack', () => step(1));
-        navigator.mediaSession.setActionHandler('previoustrack', () => step(-1));
-    }, [currentTrack, step]);
-
     // ── upload ───────────────────────────────────────────────────────────────────
+
+    /** Starts (or resumes) a track, handing the provider this folder's current order for next/previous. */
+    function playTrack(track: Track) {
+        play(track, tracksByFolder[track.folder_id] ?? []);
+    }
 
     function openPicker(folderId: number | '') {
         uploadTargetRef.current = folderId;
@@ -644,7 +535,7 @@ export function AudioClient() {
             await loadFolders(key);
             await loadFolderTracks(track.folder_id, key);
             if (loadedFolders.has(movingTo)) await loadFolderTracks(movingTo, key);
-            if (currentId === track.id) setCurrentFolderId(movingTo);
+            if (currentTrack?.id === track.id) retagFolder(movingTo);
         } else {
             setTracksByFolder(prev => ({
                 ...prev,
@@ -658,7 +549,7 @@ export function AudioClient() {
         if (!window.confirm(`Delete "${track.title}"? This removes the file from storage permanently.`)) return;
         const res = await fetch(`/api/audio/${track.id}`, { method: 'DELETE' });
         if (!res.ok) { setError('Could not delete song'); return; }
-        if (currentId === track.id) stopPlayback();
+        if (currentTrack?.id === track.id) stopPlayback();
         setTracksByFolder(prev => ({
             ...prev,
             [track.folder_id]: (prev[track.folder_id] ?? []).filter(t => t.id !== track.id),
@@ -668,6 +559,7 @@ export function AudioClient() {
 
     async function handleLock() {
         stopPlayback();
+        audioPlayer.setKey(null);
         await clearKey();
         setKey(null);
         setFolders([]);
@@ -710,11 +602,8 @@ export function AudioClient() {
             </Typography>
             <Slider
                 value={position} max={duration || 1} disabled={!currentTrack}
-                onChange={(_, v) => { setSeeking(true); setPosition(v as number); }}
-                onChangeCommitted={(_, v) => {
-                    if (audioRef.current) audioRef.current.currentTime = v as number;
-                    setSeeking(false);
-                }}
+                onChange={(_, v) => previewSeek(v as number)}
+                onChangeCommitted={(_, v) => commitSeek(v as number)}
                 sx={{
                     color: '#64b5f6', py: 1,
                     '& .MuiSlider-thumb': { width: 10, height: 10 },
@@ -727,8 +616,19 @@ export function AudioClient() {
         </Box>
     );
 
+    const toggleIconSx = (active: boolean) => ({
+        color: active ? '#90b4e8' : '#4a5568',
+        '&:hover': { color: '#90b4e8' },
+        '&.Mui-disabled': { color: '#2d3748' },
+    });
+
     const transportButtons = (big: boolean) => (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: big ? 0.5 : 0 }}>
+            <Tooltip title={shuffle ? 'Shuffle on' : 'Shuffle off'}>
+                <IconButton onClick={toggleShuffle} disabled={!currentTrack} size="small" sx={toggleIconSx(shuffle)}>
+                    <ShuffleIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
             <Tooltip title="Previous">
                 <IconButton onClick={() => step(-1)} disabled={!currentTrack}
                     sx={{ color: '#90b4e8', '&.Mui-disabled': { color: '#3a4255' } }}>
@@ -764,26 +664,28 @@ export function AudioClient() {
                     <SkipNextIcon />
                 </IconButton>
             </Tooltip>
+            <Tooltip title={repeatOne ? 'Repeat: this song' : 'Repeat: off'}>
+                <IconButton onClick={toggleRepeatOne} disabled={!currentTrack} size="small" sx={toggleIconSx(repeatOne)}>
+                    <RepeatOneIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="Queue">
+                <IconButton onClick={() => setQueueOpen(true)} disabled={!currentTrack} size="small"
+                    sx={{ color: '#4a5568', '&:hover': { color: '#90b4e8' }, '&.Mui-disabled': { color: '#2d3748' } }}>
+                    <QueueMusicIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
         </Box>
     );
 
     const volumeControl = (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton size="small" onClick={() => {
-                const next = !muted;
-                setMuted(next);
-                if (audioRef.current) audioRef.current.muted = next;
-            }} sx={{ color: '#4a5568', '&:hover': { color: '#90b4e8' } }}>
+            <IconButton size="small" onClick={() => setMuted(!muted)} sx={{ color: '#4a5568', '&:hover': { color: '#90b4e8' } }}>
                 {muted || volume === 0 ? <VolumeOffIcon fontSize="small" /> : <VolumeUpIcon fontSize="small" />}
             </IconButton>
             <Slider
                 value={muted ? 0 : volume} min={0} max={1} step={0.01}
-                onChange={(_, v) => {
-                    const nv = v as number;
-                    setVolume(nv);
-                    setMuted(nv === 0);
-                    if (audioRef.current) { audioRef.current.volume = nv; audioRef.current.muted = nv === 0; }
-                }}
+                onChange={(_, v) => setVolume(v as number)}
                 sx={{ color: '#90b4e8', '& .MuiSlider-thumb': { width: 9, height: 9 }, '& .MuiSlider-rail': { color: '#4a5568' } }}
             />
         </Box>
@@ -896,9 +798,9 @@ export function AudioClient() {
                         }}
                     />
 
-                    {error && (
+                    {(error || playerError) && (
                         <Box sx={{ mb: 2, p: 1.5, borderRadius: 1, backgroundColor: '#2d2130', border: '1px solid #e57373' }}>
-                            <Typography sx={{ color: '#e57373', fontSize: '0.85rem' }}>{error}</Typography>
+                            <Typography sx={{ color: '#e57373', fontSize: '0.85rem' }}>{error || playerError}</Typography>
                         </Box>
                     )}
 
@@ -1007,7 +909,7 @@ export function AudioClient() {
                                                 ) : (
                                                     <>
                                                         {list.map((t, trackIndex) => {
-                                                            const active = t.id === currentId;
+                                                            const active = t.id === currentTrack?.id;
                                                             const busy = loadingTrack?.id === t.id;
                                                             const isEditing = editingId === t.id;
                                                             const dragging = trackDrag?.track.id === t.id && trackDrag.isDragging;
@@ -1040,7 +942,7 @@ export function AudioClient() {
                                                                         </IconButton>
 
                                                                         <IconButton
-                                                                            onClick={() => (active && isPlaying ? audioRef.current?.pause() : play(t))}
+                                                                            onClick={() => (active && isPlaying ? togglePlay() : playTrack(t))}
                                                                             disabled={busy} size="small"
                                                                             sx={{ color: active ? '#64b5f6' : '#90b4e8' }}
                                                                         >
@@ -1181,12 +1083,20 @@ export function AudioClient() {
 
                 {upNext.length > 0 && (
                     <Box sx={{ mt: 1, borderTop: '1px solid #252f42', pt: 2 }}>
-                        <Typography sx={{ fontSize: '0.68rem', letterSpacing: 1, textTransform: 'uppercase', color: '#4a5568', mb: 1 }}>
-                            Up next
-                        </Typography>
-                        {upNext.map(t => (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1 }}>
+                            <Typography sx={{ fontSize: '0.68rem', letterSpacing: 1, textTransform: 'uppercase', color: '#4a5568' }}>
+                                Up next
+                            </Typography>
+                            <Typography
+                                onClick={() => setQueueOpen(true)}
+                                sx={{ fontSize: '0.7rem', color: '#90b4e8', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                            >
+                                See queue ({upNext.length})
+                            </Typography>
+                        </Box>
+                        {upNext.slice(0, 3).map(t => (
                             <Box
-                                key={t.id} onClick={() => play(t)}
+                                key={t.id} onClick={() => playFromQueue(t)}
                                 sx={{
                                     display: 'flex', justifyContent: 'space-between', gap: 1,
                                     py: 0.6, px: 0.5, borderRadius: 1, cursor: 'pointer',
@@ -1244,6 +1154,14 @@ export function AudioClient() {
                 anchorEl={trackMenu?.el ?? null} open={trackMenu !== null}
                 onClose={() => setTrackMenu(null)} slotProps={{ paper: menuPaperSx }}
             >
+                <MenuItem onClick={() => { const t = trackMenu?.track; setTrackMenu(null); if (t) playNext(t); }} disabled={!currentTrack}>
+                    <ListItemIcon><PlaylistPlayIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Play next</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => { const t = trackMenu?.track; setTrackMenu(null); if (t) addToQueue(t); }} disabled={!currentTrack}>
+                    <ListItemIcon><QueueMusicIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Add to queue</ListItemText>
+                </MenuItem>
                 <MenuItem onClick={() => {
                     if (trackMenu) { setEditingId(trackMenu.track.id); setDraftTitle(trackMenu.track.title); setDraftFolderId(trackMenu.track.folder_id); }
                     setTrackMenu(null);
@@ -1342,20 +1260,71 @@ export function AudioClient() {
                 </DialogActions>
             </Dialog>
 
-            <audio
-                ref={audioRef}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
-                onTimeUpdate={e => { if (!seeking) setPosition(e.currentTarget.currentTime); }}
-                onEnded={() => step(1)}
-                onError={() => {
-                    if (audioRef.current?.src) {
-                        setError('The decrypted audio could not be decoded.');
-                        setIsPlaying(false);
-                    }
-                }}
-            />
+            {/* Queue */}
+            <Dialog
+                open={queueOpen} onClose={() => setQueueOpen(false)} fullWidth maxWidth="xs"
+                PaperProps={{ sx: { backgroundColor: '#1a2030', color: '#f0e8e8', backgroundImage: 'none' } }}
+            >
+                <DialogTitle sx={{ fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    Queue
+                    <IconButton onClick={() => setQueueOpen(false)} size="small" sx={{ color: '#718096' }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent sx={{ pt: 0 }}>
+                    {currentTrack && (
+                        <Box sx={{ mb: 1.5 }}>
+                            <Typography sx={{ fontSize: '0.68rem', letterSpacing: 1, textTransform: 'uppercase', color: '#4a5568', mb: 0.75 }}>
+                                Now playing
+                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.6, px: 0.75, borderRadius: 1, backgroundColor: '#252f42' }}>
+                                <Typography noWrap sx={{ fontSize: '0.85rem', color: '#64b5f6', fontWeight: 600 }}>{currentTrack.title}</Typography>
+                                <Typography sx={{ fontSize: '0.72rem', color: '#4a5568', fontVariantNumeric: 'tabular-nums' }}>
+                                    {formatTime(currentTrack.duration_seconds)}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    )}
+
+                    <Typography sx={{ fontSize: '0.68rem', letterSpacing: 1, textTransform: 'uppercase', color: '#4a5568', mb: 0.75 }}>
+                        Up next
+                    </Typography>
+                    {upNext.length === 0 ? (
+                        <Typography sx={{ color: '#4a5568', fontSize: '0.82rem', py: 1 }}>Nothing queued.</Typography>
+                    ) : (
+                        upNext.map((t, k) => {
+                            // upNext is exactly queue's tail after the current track, so this recovers k's absolute position.
+                            const queueIndex = queue.length - upNext.length + k;
+                            return (
+                                <Box
+                                    key={`${t.id}-${k}`}
+                                    sx={{
+                                        display: 'flex', alignItems: 'center', gap: 0.5,
+                                        py: 0.5, px: 0.5, mb: 0.4, borderRadius: 1,
+                                        '&:hover': { backgroundColor: '#1e2535' },
+                                    }}
+                                >
+                                    <Box
+                                        onClick={() => { playFromQueue(t); setQueueOpen(false); }}
+                                        sx={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'space-between', gap: 1, cursor: 'pointer' }}
+                                    >
+                                        <Typography noWrap sx={{ fontSize: '0.85rem', color: '#a8b4c8' }}>{t.title}</Typography>
+                                        <Typography sx={{ fontSize: '0.72rem', color: '#4a5568', fontVariantNumeric: 'tabular-nums' }}>
+                                            {formatTime(t.duration_seconds)}
+                                        </Typography>
+                                    </Box>
+                                    <IconButton
+                                        size="small" onClick={() => removeFromQueue(queueIndex)}
+                                        sx={{ color: '#4a5568', '&:hover': { color: '#e57373' } }}
+                                    >
+                                        <CloseIcon sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                </Box>
+                            );
+                        })
+                    )}
+                </DialogContent>
+            </Dialog>
         </Box>
     );
 }
