@@ -1,24 +1,8 @@
 'use client';
 
 import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { decryptToBlob } from '@/lib/audioCrypto';
+import { decryptResponseStream } from '@/lib/audioCrypto';
 import type { Loading, Track } from '@/app/audio/types';
-
-/** XHR rather than fetch — fetch has no download-progress events. */
-function getWithProgress(url: string, onProgress: (pct: number) => void): Promise<ArrayBuffer> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url);
-        xhr.responseType = 'arraybuffer';
-        xhr.onprogress = e => {
-            if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => xhr.status >= 200 && xhr.status < 300
-            ? resolve(xhr.response as ArrayBuffer) : reject(new Error(`R2 refused the download (${xhr.status})`));
-        xhr.onerror = () => reject(new Error('Network error during download'));
-        xhr.send();
-    });
-}
 
 function shuffled<T>(arr: T[]): T[] {
     const out = [...arr];
@@ -133,14 +117,17 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
     /** Downloads ciphertext from R2 and decrypts it. Shared by immediate playback and background prefetch. */
     const fetchAndDecrypt = useCallback(async (
-        track: Track, key: CryptoKey, onProgress?: (phase: 'fetching' | 'decrypting', pct: number) => void
+        track: Track, key: CryptoKey, onProgress?: (pct: number) => void
     ): Promise<Blob> => {
         const urlRes = await fetch(`/api/audio/${track.id}/play`);
         if (!urlRes.ok) throw new Error((await urlRes.json()).error ?? 'Could not get playback URL');
         const { url } = await urlRes.json();
 
-        const ciphertext = await getWithProgress(url, pct => onProgress?.('fetching', pct));
-        return decryptToBlob(ciphertext, key, track.mime_type || 'audio/mpeg', f => onProgress?.('decrypting', Math.round(f * 100)));
+        const audioRes = await fetch(url);
+        if (!audioRes.ok) throw new Error(`R2 refused the download (${audioRes.status})`);
+
+        // Decrypts as bytes arrive instead of after the whole file has downloaded.
+        return decryptResponseStream(audioRes, key, track.mime_type || 'audio/mpeg', f => onProgress?.(Math.round(f * 100)));
     }, []);
 
     /** Fetches, decrypts, and plays a track. Never touches the queue — callers decide that. */
@@ -163,9 +150,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
                 blob = prefetchRef.current.blob;
                 prefetchRef.current = null;
             } else {
-                setLoadingTrack({ id: track.id, phase: 'fetching', pct: 0 });
-                blob = await fetchAndDecrypt(track, key, (phase, pct) => {
-                    if (playGenRef.current === gen) setLoadingTrack({ id: track.id, phase, pct });
+                setLoadingTrack({ id: track.id, phase: 'loading', pct: 0 });
+                blob = await fetchAndDecrypt(track, key, pct => {
+                    if (playGenRef.current === gen) setLoadingTrack({ id: track.id, phase: 'loading', pct });
                 });
             }
             if (playGenRef.current !== gen) return;

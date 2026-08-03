@@ -1009,12 +1009,12 @@ export function AudioClient() {
                                                                     {busy && (
                                                                         <Box sx={{ px: 1, pb: 1 }}>
                                                                             <Typography sx={{ fontSize: '0.68rem', color: '#718096', mb: 0.3 }}>
-                                                                                {loadingTrack.phase === 'fetching' ? 'Downloading' : 'Decrypting'} {loadingTrack.pct}%
+                                                                                Loading {loadingTrack.pct}%
                                                                             </Typography>
                                                                             <LinearProgress variant="determinate" value={loadingTrack.pct}
                                                                                 sx={{
                                                                                     height: 3, borderRadius: 2, backgroundColor: '#252f42',
-                                                                                    '& .MuiLinearProgress-bar': { backgroundColor: loadingTrack.phase === 'fetching' ? '#64b5f6' : '#ffb74d' },
+                                                                                    '& .MuiLinearProgress-bar': { backgroundColor: '#64b5f6' },
                                                                                 }} />
                                                                         </Box>
                                                                     )}

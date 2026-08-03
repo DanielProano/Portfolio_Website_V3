@@ -11,4 +11,4 @@ export type RawTrack = {
 };
 export type Track = Omit<RawTrack, 'title_enc'> & { title: string };
 
-export type Loading = { id: number; phase: 'fetching' | 'decrypting'; pct: number };
+export type Loading = { id: number; phase: 'loading'; pct: number };
