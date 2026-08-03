@@ -918,23 +918,32 @@ export function AudioClient() {
                                                             const dragging = trackDrag?.track.id === t.id && trackDrag.isDragging;
                                                             return (
                                                                 <Box key={t.id}>
-                                                                    <Box sx={{
-                                                                        display: 'flex', alignItems: 'center', gap: 0.5,
-                                                                        px: 0.75, py: 0.5, mb: 0.5, borderRadius: 1.5,
-                                                                        minHeight: TRACK_ROW_HEIGHT,
-                                                                        backgroundColor: active ? '#252f42' : '#1e2535',
-                                                                        border: '1px solid',
-                                                                        borderColor: dragging ? '#64b5f6' : active ? '#3d5280' : isEditing ? '#90b4e8' : '#2d3748',
-                                                                        opacity: dragging ? 0.4 : 1,
-                                                                        transition: trackDrag?.isDragging ? 'none' : 'opacity 0.15s, border-color 0.15s',
-                                                                        '&:hover .trackActions': { opacity: 1 },
-                                                                    }}>
+                                                                    <Box
+                                                                        onClick={() => { if (!isEditing && !busy) (active && isPlaying ? togglePlay() : playTrack(t)); }}
+                                                                        onPointerDown={e => { if (!isEditing && e.pointerType === 'mouse') startTrackDrag(e, t, trackIndex); }}
+                                                                        onPointerMove={moveTrackDrag}
+                                                                        onPointerUp={endTrackDrag}
+                                                                        onPointerCancel={() => setTrackDrag(null)}
+                                                                        sx={{
+                                                                            display: 'flex', alignItems: 'center', gap: 0.5,
+                                                                            px: 0.75, py: 0.5, mb: 0.5, borderRadius: 1.5,
+                                                                            minHeight: TRACK_ROW_HEIGHT,
+                                                                            backgroundColor: active ? '#252f42' : '#1e2535',
+                                                                            border: '1px solid',
+                                                                            borderColor: dragging ? '#64b5f6' : active ? '#3d5280' : isEditing ? '#90b4e8' : '#2d3748',
+                                                                            opacity: dragging ? 0.4 : 1,
+                                                                            transition: trackDrag?.isDragging ? 'none' : 'opacity 0.15s, border-color 0.15s',
+                                                                            cursor: isEditing ? 'default' : dragging ? 'grabbing' : 'pointer',
+                                                                            '&:hover .trackActions': { opacity: 1 },
+                                                                        }}
+                                                                    >
                                                                         <IconButton
                                                                             size="small" className="trackActions"
                                                                             onPointerDown={e => { if (!isEditing) startTrackDrag(e, t, trackIndex); }}
                                                                             onPointerMove={moveTrackDrag}
                                                                             onPointerUp={endTrackDrag}
                                                                             onPointerCancel={() => setTrackDrag(null)}
+                                                                            onClick={e => e.stopPropagation()}
                                                                             sx={{
                                                                                 color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 }, touchAction: 'none',
                                                                                 cursor: trackDrag?.isDragging ? 'grabbing' : 'grab',
@@ -945,7 +954,6 @@ export function AudioClient() {
                                                                         </IconButton>
 
                                                                         <IconButton
-                                                                            onClick={() => (active && isPlaying ? togglePlay() : playTrack(t))}
                                                                             disabled={busy} size="small"
                                                                             sx={{ color: active ? '#64b5f6' : '#90b4e8', p: 0.75 }}
                                                                         >
@@ -985,7 +993,9 @@ export function AudioClient() {
                                                                             </Box>
                                                                         ) : (
                                                                             <Typography
-                                                                                noWrap onDoubleClick={() => { setEditingId(t.id); setDraftTitle(t.title); setDraftFolderId(t.folder_id); }}
+                                                                                noWrap
+                                                                                onClick={e => e.stopPropagation()}
+                                                                                onDoubleClick={() => { setEditingId(t.id); setDraftTitle(t.title); setDraftFolderId(t.folder_id); }}
                                                                                 sx={{ flexGrow: 1, minWidth: 0, fontSize: '0.9rem', color: active ? '#64b5f6' : '#f0e8e8', cursor: 'default' }}
                                                                             >
                                                                                 {t.title}
@@ -997,7 +1007,7 @@ export function AudioClient() {
                                                                         </Typography>
                                                                         <IconButton
                                                                             size="small" className="trackActions"
-                                                                            onClick={e => setTrackMenu({ el: e.currentTarget, track: t })}
+                                                                            onClick={e => { e.stopPropagation(); setTrackMenu({ el: e.currentTarget, track: t }); }}
                                                                             sx={{
                                                                                 color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 },
                                                                                 transition: 'opacity 0.15s', '&:hover': { color: '#f0e8e8' },
