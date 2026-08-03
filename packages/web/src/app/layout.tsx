@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AuthButton } from '@/components/AuthButton';
 import { getSessionSafe } from '@/lib/auth0';
+import { AudioPlayerProvider } from '@/context/AudioPlayerContext';
 import './globals.css';
 
 export const viewport = {
@@ -30,12 +31,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <body>
         <AppRouterCacheProvider>
-          <TopBar
-            authButton={<AuthButton />}
-            isLoggedIn={!!session}
-            isAdmin={!!session && session.user.email === process.env.ADMIN_EMAIL}
-          />
-          {children}
+          <AudioPlayerProvider>
+            <TopBar
+              authButton={<AuthButton />}
+              isLoggedIn={!!session}
+              isAdmin={!!session && session.user.email === process.env.ADMIN_EMAIL}
+            />
+            {children}
+          </AudioPlayerProvider>
         </AppRouterCacheProvider>
       </body>
       <Analytics />
