@@ -15,7 +15,7 @@ import Forward10Icon from '@mui/icons-material/Forward10';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import AudiotrackIcon from '@mui/icons-material/Audiotrack';
 import CheckIcon from '@mui/icons-material/Check';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
@@ -29,7 +29,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
 import RepeatOneIcon from '@mui/icons-material/RepeatOne';
-import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import QueueIcon from '@mui/icons-material/Queue';
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay';
 import CloseIcon from '@mui/icons-material/Close';
 import { derive_key } from '@/context/Encrypt';
@@ -625,14 +625,14 @@ export function AudioClient() {
     const transportButtons = (big: boolean) => (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: big ? 0.5 : 0 }}>
             <Tooltip title={shuffle ? 'Shuffle on' : 'Shuffle off'}>
-                <IconButton onClick={toggleShuffle} disabled={!currentTrack} size="small" sx={toggleIconSx(shuffle)}>
-                    <ShuffleIcon fontSize="small" />
+                <IconButton onClick={toggleShuffle} disabled={!currentTrack} size={big ? 'medium' : 'small'} sx={toggleIconSx(shuffle)}>
+                    <ShuffleIcon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
             <Tooltip title="Previous">
                 <IconButton onClick={() => step(-1)} disabled={!currentTrack}
                     sx={{ color: '#90b4e8', '&.Mui-disabled': { color: '#3a4255' } }}>
-                    <SkipPreviousIcon />
+                    <SkipPreviousIcon fontSize={big ? 'large' : 'medium'} />
                 </IconButton>
             </Tooltip>
             <Tooltip title="Back 10s">
@@ -645,7 +645,7 @@ export function AudioClient() {
                 onClick={togglePlay} disabled={!currentTrack || !!loadingTrack}
                 sx={{
                     mx: 0.5, color: '#1e2535', backgroundColor: '#90b4e8',
-                    width: big ? 52 : 40, height: big ? 52 : 40,
+                    width: big ? { xs: 60, lg: 52 } : 40, height: big ? { xs: 60, lg: 52 } : 40,
                     '&:hover': { backgroundColor: '#64b5f6' },
                     '&.Mui-disabled': { backgroundColor: '#2d3748', color: '#4a5568' },
                 }}
@@ -661,18 +661,18 @@ export function AudioClient() {
             <Tooltip title="Next">
                 <IconButton onClick={() => step(1)} disabled={!currentTrack}
                     sx={{ color: '#90b4e8', '&.Mui-disabled': { color: '#3a4255' } }}>
-                    <SkipNextIcon />
+                    <SkipNextIcon fontSize={big ? 'large' : 'medium'} />
                 </IconButton>
             </Tooltip>
             <Tooltip title={repeatOne ? 'Repeat: this song' : 'Repeat: off'}>
-                <IconButton onClick={toggleRepeatOne} disabled={!currentTrack} size="small" sx={toggleIconSx(repeatOne)}>
-                    <RepeatOneIcon fontSize="small" />
+                <IconButton onClick={toggleRepeatOne} disabled={!currentTrack} size={big ? 'medium' : 'small'} sx={toggleIconSx(repeatOne)}>
+                    <RepeatOneIcon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
             <Tooltip title="Queue">
-                <IconButton onClick={() => setQueueOpen(true)} disabled={!currentTrack} size="small"
+                <IconButton onClick={() => setQueueOpen(true)} disabled={!currentTrack} size={big ? 'medium' : 'small'}
                     sx={{ color: '#4a5568', '&:hover': { color: '#90b4e8' }, '&.Mui-disabled': { color: '#2d3748' } }}>
-                    <QueueMusicIcon fontSize="small" />
+                    <QueueIcon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
         </Box>
@@ -770,7 +770,7 @@ export function AudioClient() {
         <Box sx={{ display: 'flex', backgroundColor: '#1a2030', color: '#f0e8e8', minHeight: `calc(100vh - ${TOPBAR_OFFSET}px)` }}>
 
             {/* Main column */}
-            <Box sx={{ flex: 1, minWidth: 0, px: { xs: 2, md: 4 }, py: 4, pb: { xs: 16, lg: 6 } }}>
+            <Box sx={{ flex: 1, minWidth: 0, px: { xs: 2, md: 4 }, py: 4, pb: { xs: 'calc(148px + env(safe-area-inset-bottom))', lg: 6 } }}>
                 <Box sx={{ maxWidth: 760, mx: 'auto' }}>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
                         <Typography variant="h4" sx={{ fontWeight: 700 }}>Audio</Typography>
@@ -866,16 +866,16 @@ export function AudioClient() {
                                                 onPointerCancel={() => setFolderDrag(null)}
                                                 className="rowActions"
                                                 sx={{
-                                                    color: '#4a5568', p: 0.25, opacity: 0, touchAction: 'none',
+                                                    color: '#4a5568', p: { xs: 0.75, lg: 0.25 }, opacity: { xs: 1, lg: 0 }, touchAction: 'none',
                                                     cursor: folderDrag?.isDragging ? 'grabbing' : 'grab',
                                                     transition: 'opacity 0.15s', '&:hover': { color: '#90b4e8' },
                                                 }}
                                             >
-                                                <DragIndicatorIcon sx={{ fontSize: 18 }} />
+                                                <DragIndicatorIcon sx={{ fontSize: { xs: 22, lg: 18 } }} />
                                             </IconButton>
 
-                                            <IconButton size="small" onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: 0.25 }}>
-                                                {isExpanded ? <ExpandMoreIcon sx={{ fontSize: 20 }} /> : <ChevronRightIcon sx={{ fontSize: 20 }} />}
+                                            <IconButton size="small" onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: { xs: 0.6, lg: 0.25 } }}>
+                                                {isExpanded ? <ExpandMoreIcon sx={{ fontSize: { xs: 22, lg: 20 } }} /> : <ChevronRightIcon sx={{ fontSize: { xs: 22, lg: 20 } }} />}
                                             </IconButton>
                                             <FolderIcon sx={{ color: '#90b4e8', fontSize: 18, flexShrink: 0 }} />
                                             <Typography
@@ -895,9 +895,12 @@ export function AudioClient() {
                                             <IconButton
                                                 size="small" className="rowActions"
                                                 onClick={e => setFolderMenu({ el: e.currentTarget, folder })}
-                                                sx={{ color: '#4a5568', opacity: 0, transition: 'opacity 0.15s', '&:hover': { color: '#f0e8e8' } }}
+                                                sx={{
+                                                    color: '#4a5568', p: { xs: 0.75, lg: 0.5 }, opacity: { xs: 1, lg: 0 },
+                                                    transition: 'opacity 0.15s', '&:hover': { color: '#f0e8e8' },
+                                                }}
                                             >
-                                                <MoreVertIcon sx={{ fontSize: 18 }} />
+                                                <MoreVertIcon sx={{ fontSize: { xs: 22, lg: 18 } }} />
                                             </IconButton>
                                         </Box>
 
@@ -933,18 +936,18 @@ export function AudioClient() {
                                                                             onPointerUp={endTrackDrag}
                                                                             onPointerCancel={() => setTrackDrag(null)}
                                                                             sx={{
-                                                                                color: '#4a5568', p: 0.25, opacity: 0, touchAction: 'none',
+                                                                                color: '#4a5568', p: { xs: 0.75, lg: 0.25 }, opacity: { xs: 1, lg: 0 }, touchAction: 'none',
                                                                                 cursor: trackDrag?.isDragging ? 'grabbing' : 'grab',
                                                                                 transition: 'opacity 0.15s', '&:hover': { color: '#90b4e8' },
                                                                             }}
                                                                         >
-                                                                            <DragIndicatorIcon sx={{ fontSize: 16 }} />
+                                                                            <DragIndicatorIcon sx={{ fontSize: { xs: 20, lg: 16 } }} />
                                                                         </IconButton>
 
                                                                         <IconButton
                                                                             onClick={() => (active && isPlaying ? togglePlay() : playTrack(t))}
                                                                             disabled={busy} size="small"
-                                                                            sx={{ color: active ? '#64b5f6' : '#90b4e8' }}
+                                                                            sx={{ color: active ? '#64b5f6' : '#90b4e8', p: { xs: 0.75, lg: 0.5 } }}
                                                                         >
                                                                             {busy ? <HourglassTopIcon fontSize="small" />
                                                                                 : active && isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
@@ -995,9 +998,12 @@ export function AudioClient() {
                                                                         <IconButton
                                                                             size="small" className="trackActions"
                                                                             onClick={e => setTrackMenu({ el: e.currentTarget, track: t })}
-                                                                            sx={{ color: '#4a5568', opacity: 0, transition: 'opacity 0.15s', '&:hover': { color: '#f0e8e8' } }}
+                                                                            sx={{
+                                                                                color: '#4a5568', p: { xs: 0.75, lg: 0.5 }, opacity: { xs: 1, lg: 0 },
+                                                                                transition: 'opacity 0.15s', '&:hover': { color: '#f0e8e8' },
+                                                                            }}
                                                                         >
-                                                                            <MoreVertIcon sx={{ fontSize: 18 }} />
+                                                                            <MoreVertIcon sx={{ fontSize: { xs: 22, lg: 18 } }} />
                                                                         </IconButton>
                                                                     </Box>
                                                                     {busy && (
@@ -1065,7 +1071,7 @@ export function AudioClient() {
                     border: '1px solid #2d3748',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                    <MusicNoteIcon sx={{ fontSize: 64, color: currentTrack ? '#3d5280' : '#252f42' }} />
+                    <AudiotrackIcon sx={{ fontSize: 64, color: currentTrack ? '#3d5280' : '#252f42' }} />
                 </Box>
 
                 <Box sx={{ minWidth: 0 }}>
@@ -1118,13 +1124,13 @@ export function AudioClient() {
                 display: { xs: 'block', lg: 'none' },
                 position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 10,
                 backgroundColor: '#161c29', borderTop: '1px solid #3a4255',
-                px: 2, py: 1,
+                px: 2, pt: 1, pb: 'calc(10px + env(safe-area-inset-bottom))',
             }}>
                 <Typography noWrap sx={{ fontSize: '0.78rem', color: currentTrack ? '#f0e8e8' : '#4a5568', textAlign: 'center' }}>
                     {currentTrack ? currentTrack.title : 'Nothing playing'}
                 </Typography>
                 {seekBar}
-                {transportButtons(false)}
+                {transportButtons(true)}
             </Box>
 
             {/* Folder menu */}
@@ -1159,7 +1165,7 @@ export function AudioClient() {
                     <ListItemText>Play next</ListItemText>
                 </MenuItem>
                 <MenuItem onClick={() => { const t = trackMenu?.track; setTrackMenu(null); if (t) addToQueue(t); }} disabled={!currentTrack}>
-                    <ListItemIcon><QueueMusicIcon fontSize="small" /></ListItemIcon>
+                    <ListItemIcon><QueueIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Add to queue</ListItemText>
                 </MenuItem>
                 <MenuItem onClick={() => {
