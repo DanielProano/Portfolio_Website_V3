@@ -625,53 +625,53 @@ export function AudioClient() {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: big ? 0.5 : 0 }}>
             <Tooltip title={shuffle ? 'Shuffle on' : 'Shuffle off'}>
                 <IconButton onClick={toggleShuffle} disabled={!currentTrack} size={big ? 'medium' : 'small'} sx={toggleIconSx(shuffle)}>
-                    <ShuffleIcon fontSize={big ? 'large' : 'small'} />
+                    <ShuffleIcon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
             <Tooltip title="Previous">
                 <IconButton onClick={() => step(-1)} disabled={!currentTrack}
                     sx={{ color: '#90b4e8', '&.Mui-disabled': { color: '#3a4255' } }}>
-                    <SkipPreviousIcon sx={{ fontSize: big ? 40 : 24 }} />
+                    <SkipPreviousIcon sx={{ fontSize: big ? 32 : 24 }} />
                 </IconButton>
             </Tooltip>
             <Tooltip title="Back 10s">
                 <IconButton onClick={() => nudge(-10)} disabled={!currentTrack}
                     sx={{ color: '#718096', '&.Mui-disabled': { color: '#3a4255' } }}>
-                    <Replay10Icon fontSize={big ? 'large' : 'small'} />
+                    <Replay10Icon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
             <IconButton
                 onClick={togglePlay} disabled={!currentTrack || !!loadingTrack}
                 sx={{
                     mx: 0.5, color: '#1e2535', backgroundColor: '#90b4e8',
-                    width: big ? 64 : 40, height: big ? 64 : 40,
+                    width: big ? 52 : 40, height: big ? 52 : 40,
                     '&:hover': { backgroundColor: '#64b5f6' },
                     '&.Mui-disabled': { backgroundColor: '#2d3748', color: '#4a5568' },
                 }}
             >
-                {isPlaying ? <PauseIcon sx={{ fontSize: big ? 36 : 24 }} /> : <PlayArrowIcon sx={{ fontSize: big ? 36 : 24 }} />}
+                {isPlaying ? <PauseIcon sx={{ fontSize: big ? 28 : 24 }} /> : <PlayArrowIcon sx={{ fontSize: big ? 28 : 24 }} />}
             </IconButton>
             <Tooltip title="Forward 10s">
                 <IconButton onClick={() => nudge(10)} disabled={!currentTrack}
                     sx={{ color: '#718096', '&.Mui-disabled': { color: '#3a4255' } }}>
-                    <Forward10Icon fontSize={big ? 'large' : 'small'} />
+                    <Forward10Icon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
             <Tooltip title="Next">
                 <IconButton onClick={() => step(1)} disabled={!currentTrack}
                     sx={{ color: '#90b4e8', '&.Mui-disabled': { color: '#3a4255' } }}>
-                    <SkipNextIcon sx={{ fontSize: big ? 40 : 24 }} />
+                    <SkipNextIcon sx={{ fontSize: big ? 32 : 24 }} />
                 </IconButton>
             </Tooltip>
             <Tooltip title={repeatOne ? 'Repeat: this song' : 'Repeat: off'}>
                 <IconButton onClick={toggleRepeatOne} disabled={!currentTrack} size={big ? 'medium' : 'small'} sx={toggleIconSx(repeatOne)}>
-                    <RepeatOneIcon fontSize={big ? 'large' : 'small'} />
+                    <RepeatOneIcon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
             <Tooltip title="Queue">
                 <IconButton onClick={() => setQueueOpen(true)} disabled={!currentTrack} size={big ? 'medium' : 'small'}
                     sx={{ color: '#4a5568', '&:hover': { color: '#90b4e8' }, '&.Mui-disabled': { color: '#2d3748' } }}>
-                    <QueueIcon fontSize={big ? 'large' : 'small'} />
+                    <QueueIcon fontSize={big ? 'medium' : 'small'} />
                 </IconButton>
             </Tooltip>
         </Box>
@@ -1066,12 +1066,12 @@ export function AudioClient() {
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box sx={{
-                        width: 48, height: 48, flexShrink: 0, borderRadius: 1.5,
+                        width: 80, height: 80, flexShrink: 0, borderRadius: 2,
                         background: 'linear-gradient(145deg, #252f42 0%, #1a2030 100%)',
                         border: '1px solid #2d3748',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                        <AudiotrackIcon sx={{ fontSize: 20, color: currentTrack ? '#3d5280' : '#252f42' }} />
+                        <AudiotrackIcon sx={{ fontSize: 30, color: currentTrack ? '#3d5280' : '#252f42' }} />
                     </Box>
 
                     <Box sx={{ minWidth: 0 }}>
