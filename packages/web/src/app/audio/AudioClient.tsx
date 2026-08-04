@@ -47,7 +47,7 @@ type TrackDrag = { track: Track; originalIndex: number; deltaY: number; isDraggi
 
 const FOLDER_ROW_HEIGHT = 46;
 const TRACK_ROW_HEIGHT = 48;
-const SIDEBAR_WIDTH = 380;
+const SIDEBAR_WIDTH = 460;
 const TOPBAR_OFFSET = 88;
 
 const EXT_MIME: Record<string, string> = {
@@ -771,7 +771,7 @@ export function AudioClient() {
 
             {/* Main column */}
             <Box sx={{ flex: 1, minWidth: 0, px: { xs: 2, md: 4 }, py: 4, pb: { xs: 'calc(148px + env(safe-area-inset-bottom))', lg: 6 } }}>
-                <Box sx={{ maxWidth: 760, mx: 'auto' }}>
+                <Box sx={{ maxWidth: 760 }}>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
                         <Typography variant="h4" sx={{ fontWeight: 700 }}>Audio</Typography>
                         <Button
