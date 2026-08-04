@@ -45,9 +45,9 @@ type FolderDialog = { mode: 'new' } | { mode: 'rename'; folder: Folder } | null;
 type FolderDrag = { id: number; originalIndex: number; deltaY: number; isDragging: boolean };
 type TrackDrag = { track: Track; originalIndex: number; deltaY: number; isDragging: boolean };
 
-const FOLDER_ROW_HEIGHT = 46;
-const TRACK_ROW_HEIGHT = 48;
-const SIDEBAR_WIDTH = 460;
+const FOLDER_ROW_HEIGHT = 60;
+const TRACK_ROW_HEIGHT = 60;
+const SIDEBAR_WIDTH = 600;
 const TOPBAR_OFFSET = 88;
 
 const EXT_MIME: Record<string, string> = {
