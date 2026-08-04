@@ -129,6 +129,105 @@ export async function decryptToBlob(
 }
 
 /**
+ * Same output as decryptToBlob, but decrypts each chunk as its bytes arrive from
+ * `response.body` instead of waiting for the whole file to download first — so
+ * decryption overlaps the remaining download instead of running after it.
+ *
+ * The catch: each chunk's AAD binds the total chunk count, which normally isn't
+ * knowable until the last chunk's length prefix has been read — i.e. until the
+ * whole file has arrived. This works around that without any wire-format change:
+ * every chunk but the last is exactly `chunkSize` plaintext bytes (see
+ * encryptFile), so the total is recoverable arithmetically from the response's
+ * Content-Length and the header's chunkSize alone. If Content-Length is missing
+ * (some proxies strip it), this falls back to buffering the whole response first.
+ */
+export async function decryptResponseStream(
+    response: Response,
+    key: CryptoKey,
+    mimeType: string,
+    onProgress?: (fraction: number) => void
+): Promise<Blob> {
+    const contentLength = Number(response.headers.get('content-length'));
+    if (!response.body || !Number.isFinite(contentLength) || contentLength <= 0) {
+        return decryptToBlob(await response.arrayBuffer(), key, mimeType, onProgress);
+    }
+
+    const reader = response.body.getReader();
+    const pending: Uint8Array[] = [];
+    let pendingLength = 0;
+
+    async function fill(): Promise<boolean> {
+        const { value, done } = await reader.read();
+        if (done) return false;
+        pending.push(value);
+        pendingLength += value.byteLength;
+        return true;
+    }
+
+    async function need(n: number): Promise<void> {
+        while (pendingLength < n) {
+            if (!(await fill())) throw new Error('Encrypted file is truncated');
+        }
+    }
+
+    function take(n: number): Uint8Array<ArrayBuffer> {
+        const out = new Uint8Array(n);
+        let filled = 0;
+        while (filled < n) {
+            const head = pending[0];
+            const remaining = n - filled;
+            if (head.byteLength <= remaining) {
+                out.set(head, filled);
+                filled += head.byteLength;
+                pending.shift();
+            } else {
+                out.set(head.subarray(0, remaining), filled);
+                pending[0] = head.subarray(remaining);
+                filled += remaining;
+            }
+        }
+        pendingLength -= n;
+        return out;
+    }
+
+    await need(HEADER_BYTES);
+    const header = take(HEADER_BYTES);
+    const magic = new TextDecoder().decode(header.subarray(0, 4));
+    if (magic !== MAGIC) throw new Error('Not a recognised encrypted audio file');
+    if (header[4] !== VERSION) throw new Error(`Unsupported encryption version ${header[4]}`);
+    const chunkSize = new DataView(header.buffer).getUint32(5, false);
+    const total = Math.max(1, Math.ceil((contentLength - HEADER_BYTES) / (chunkSize + IV_BYTES + LEN_BYTES + 16)));
+
+    const parts: BlobPart[] = [];
+    for (let index = 0; index < total; index++) {
+        await need(IV_BYTES + LEN_BYTES);
+        const chunkHeader = take(IV_BYTES + LEN_BYTES);
+        const iv = chunkHeader.slice(0, IV_BYTES);
+        const ctLen = new DataView(chunkHeader.buffer).getUint32(IV_BYTES, false);
+
+        await need(ctLen);
+        const ct = take(ctLen);
+
+        const plaintext = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv, additionalData: chunkAad(index, total) },
+            key,
+            ct
+        );
+        parts.push(plaintext);
+        onProgress?.((index + 1) / total);
+    }
+
+    // Defense in depth against the arithmetic total ever under- or over-shooting:
+    // confirm the stream is exactly exhausted rather than silently returning a
+    // truncated or trailing-garbage blob.
+    if (pendingLength > 0) throw new Error('Encrypted file has unexpected trailing data');
+    const { done } = await reader.read();
+    if (!done) throw new Error('Encrypted file has unexpected trailing data');
+
+    return new Blob(parts, { type: mimeType || 'audio/mpeg' });
+}
+
+/**
  * Metadata helpers — reuse the vault's {iv, data} JSON shape so both features
  * store encrypted text identically.
  */

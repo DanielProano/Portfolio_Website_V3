@@ -1,24 +1,8 @@
 'use client';
 
 import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { decryptToBlob } from '@/lib/audioCrypto';
+import { decryptResponseStream } from '@/lib/audioCrypto';
 import type { Loading, Track } from '@/app/audio/types';
-
-/** XHR rather than fetch — fetch has no download-progress events. */
-function getWithProgress(url: string, onProgress: (pct: number) => void): Promise<ArrayBuffer> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url);
-        xhr.responseType = 'arraybuffer';
-        xhr.onprogress = e => {
-            if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => xhr.status >= 200 && xhr.status < 300
-            ? resolve(xhr.response as ArrayBuffer) : reject(new Error(`R2 refused the download (${xhr.status})`));
-        xhr.onerror = () => reject(new Error('Network error during download'));
-        xhr.send();
-    });
-}
 
 function shuffled<T>(arr: T[]): T[] {
     const out = [...arr];
@@ -85,6 +69,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const blobUrlRef = useRef<string | null>(null);
     const playGenRef = useRef(0);
+    /** The queue's next track, downloaded + decrypted ahead of time so skipping to it is instant. */
+    const prefetchRef = useRef<{ trackId: number; blob: Blob } | null>(null);
+    const prefetchGenRef = useRef(0);
 
     const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
     const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
@@ -114,6 +101,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
     const stopPlayback = useCallback(() => {
         playGenRef.current++;
+        prefetchGenRef.current++;
+        prefetchRef.current = null;
         audioRef.current?.pause();
         if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
         audioRef.current?.removeAttribute('src');
@@ -124,6 +113,21 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         setIsPlaying(false);
         setPosition(0);
         setDuration(0);
+    }, []);
+
+    /** Downloads ciphertext from R2 and decrypts it. Shared by immediate playback and background prefetch. */
+    const fetchAndDecrypt = useCallback(async (
+        track: Track, key: CryptoKey, onProgress?: (pct: number) => void
+    ): Promise<Blob> => {
+        const urlRes = await fetch(`/api/audio/${track.id}/play`);
+        if (!urlRes.ok) throw new Error((await urlRes.json()).error ?? 'Could not get playback URL');
+        const { url } = await urlRes.json();
+
+        const audioRes = await fetch(url);
+        if (!audioRes.ok) throw new Error(`R2 refused the download (${audioRes.status})`);
+
+        // Decrypts as bytes arrive instead of after the whole file has downloaded.
+        return decryptResponseStream(audioRes, key, track.mime_type || 'audio/mpeg', f => onProgress?.(Math.round(f * 100)));
     }, []);
 
     /** Fetches, decrypts, and plays a track. Never touches the queue — callers decide that. */
@@ -139,23 +143,18 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
         const gen = ++playGenRef.current;
         setPlayerError(null);
-        setLoadingTrack({ id: track.id, phase: 'fetching', pct: 0 });
         try {
-            const urlRes = await fetch(`/api/audio/${track.id}/play`);
-            if (!urlRes.ok) throw new Error((await urlRes.json()).error ?? 'Could not get playback URL');
-            const { url } = await urlRes.json();
-
-            const ciphertext = await getWithProgress(url, pct => {
-                if (playGenRef.current === gen) setLoadingTrack({ id: track.id, phase: 'fetching', pct });
-            });
-            if (playGenRef.current !== gen) return;
-
-            setLoadingTrack({ id: track.id, phase: 'decrypting', pct: 0 });
-            const blob = await decryptToBlob(ciphertext, key, track.mime_type || 'audio/mpeg', f => {
-                if (playGenRef.current === gen) {
-                    setLoadingTrack({ id: track.id, phase: 'decrypting', pct: Math.round(f * 100) });
-                }
-            });
+            let blob: Blob;
+            if (prefetchRef.current?.trackId === track.id) {
+                // Already downloaded and decrypted in the background — skip straight to playback.
+                blob = prefetchRef.current.blob;
+                prefetchRef.current = null;
+            } else {
+                setLoadingTrack({ id: track.id, phase: 'loading', pct: 0 });
+                blob = await fetchAndDecrypt(track, key, pct => {
+                    if (playGenRef.current === gen) setLoadingTrack({ id: track.id, phase: 'loading', pct });
+                });
+            }
             if (playGenRef.current !== gen) return;
 
             if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
@@ -176,7 +175,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         } finally {
             if (playGenRef.current === gen) setLoadingTrack(null);
         }
-    }, [currentTrack]);
+    }, [currentTrack, fetchAndDecrypt]);
 
     /** Starting point for playback from the library: this folder's tracks become the queue. */
     const play = useCallback(async (track: Track, contextQueue: Track[]) => {
@@ -201,6 +200,28 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         if (i === -1) return;
         loadAndPlay(queue[(i + delta + queue.length) % queue.length]);
     }, [currentTrack, queue, loadAndPlay]);
+
+    /** Silently downloads + decrypts the track after the current one, so skipping to it is instant. */
+    useEffect(() => {
+        const key = keyRef.current;
+        if (!key || !currentTrack || repeatOne || queue.length < 2) return;
+
+        const i = queue.findIndex(t => t.id === currentTrack.id);
+        if (i === -1) return;
+        const next = queue[(i + 1) % queue.length];
+        if (next.id === currentTrack.id) return;
+
+        // The "next" track changed before we got to it (skip-ahead, reorder) — drop the stale one.
+        if (prefetchRef.current && prefetchRef.current.trackId !== next.id) prefetchRef.current = null;
+        if (prefetchRef.current) return;
+
+        const gen = ++prefetchGenRef.current;
+        fetchAndDecrypt(next, key)
+            .then(blob => { if (prefetchGenRef.current === gen) prefetchRef.current = { trackId: next.id, blob }; })
+            .catch(() => {
+                /* Best-effort — a failed prefetch just falls back to a normal fetch when the track is actually needed. */
+            });
+    }, [currentTrack, queue, repeatOne, fetchAndDecrypt]);
 
     const addToQueue = useCallback((track: Track) => {
         setQueue(prev => [...prev, track]);
