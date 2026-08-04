@@ -19,7 +19,6 @@ import AudiotrackIcon from '@mui/icons-material/Audiotrack';
 import CheckIcon from '@mui/icons-material/Check';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import FolderIcon from '@mui/icons-material/Folder';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -920,10 +919,6 @@ export function AudioClient() {
                                                                 <Box key={t.id}>
                                                                     <Box
                                                                         onClick={() => { if (!isEditing && !busy) (active && isPlaying ? togglePlay() : playTrack(t)); }}
-                                                                        onPointerDown={e => { if (!isEditing && e.pointerType === 'mouse') startTrackDrag(e, t, trackIndex); }}
-                                                                        onPointerMove={moveTrackDrag}
-                                                                        onPointerUp={endTrackDrag}
-                                                                        onPointerCancel={() => setTrackDrag(null)}
                                                                         sx={{
                                                                             display: 'flex', alignItems: 'center', gap: 0.5,
                                                                             px: 0.75, py: 0.5, mb: 0.5, borderRadius: 1.5,
@@ -933,34 +928,10 @@ export function AudioClient() {
                                                                             borderColor: dragging ? '#64b5f6' : active ? '#3d5280' : isEditing ? '#90b4e8' : '#2d3748',
                                                                             opacity: dragging ? 0.4 : 1,
                                                                             transition: trackDrag?.isDragging ? 'none' : 'opacity 0.15s, border-color 0.15s',
-                                                                            cursor: isEditing ? 'default' : dragging ? 'grabbing' : 'pointer',
+                                                                            cursor: isEditing ? 'default' : 'pointer',
                                                                             '&:hover .trackActions': { opacity: 1 },
                                                                         }}
                                                                     >
-                                                                        <IconButton
-                                                                            size="small" className="trackActions"
-                                                                            onPointerDown={e => { if (!isEditing) startTrackDrag(e, t, trackIndex); }}
-                                                                            onPointerMove={moveTrackDrag}
-                                                                            onPointerUp={endTrackDrag}
-                                                                            onPointerCancel={() => setTrackDrag(null)}
-                                                                            onClick={e => e.stopPropagation()}
-                                                                            sx={{
-                                                                                color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 }, touchAction: 'none',
-                                                                                cursor: trackDrag?.isDragging ? 'grabbing' : 'grab',
-                                                                                transition: 'opacity 0.15s', '&:hover': { color: '#90b4e8' },
-                                                                            }}
-                                                                        >
-                                                                            <DragIndicatorIcon sx={{ fontSize: 20 }} />
-                                                                        </IconButton>
-
-                                                                        <IconButton
-                                                                            disabled={busy} size="small"
-                                                                            sx={{ color: active ? '#64b5f6' : '#90b4e8', p: 0.75 }}
-                                                                        >
-                                                                            {busy ? <HourglassTopIcon fontSize="small" />
-                                                                                : active && isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
-                                                                        </IconButton>
-
                                                                         {isEditing ? (
                                                                             <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, alignItems: 'center', flexWrap: 'wrap', py: 0.5 }}>
                                                                                 <TextField
@@ -1005,6 +976,23 @@ export function AudioClient() {
                                                                         <Typography sx={{ fontSize: '0.75rem', color: '#4a5568', fontVariantNumeric: 'tabular-nums' }}>
                                                                             {formatTime(t.duration_seconds)}
                                                                         </Typography>
+                                                                        <Tooltip title="Reorder, or drag onto a folder to move it there">
+                                                                            <IconButton
+                                                                                size="small" className="trackActions"
+                                                                                onPointerDown={e => { if (!isEditing) startTrackDrag(e, t, trackIndex); }}
+                                                                                onPointerMove={moveTrackDrag}
+                                                                                onPointerUp={endTrackDrag}
+                                                                                onPointerCancel={() => setTrackDrag(null)}
+                                                                                onClick={e => e.stopPropagation()}
+                                                                                sx={{
+                                                                                    color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 }, touchAction: 'none',
+                                                                                    cursor: trackDrag?.isDragging ? 'grabbing' : 'grab',
+                                                                                    transition: 'opacity 0.15s', '&:hover': { color: '#90b4e8' },
+                                                                                }}
+                                                                            >
+                                                                                <DragIndicatorIcon sx={{ fontSize: 20 }} />
+                                                                            </IconButton>
+                                                                        </Tooltip>
                                                                         <IconButton
                                                                             size="small" className="trackActions"
                                                                             onClick={e => { e.stopPropagation(); setTrackMenu({ el: e.currentTarget, track: t }); }}
