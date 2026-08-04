@@ -915,10 +915,11 @@ export function AudioClient() {
                                                             const busy = loadingTrack?.id === t.id;
                                                             const isEditing = editingId === t.id;
                                                             const dragging = trackDrag?.track.id === t.id && trackDrag.isDragging;
+                                                            const handleRowClick = () => { if (!isEditing && !busy) (active && isPlaying ? togglePlay() : playTrack(t)); };
                                                             return (
                                                                 <Box key={t.id}>
                                                                     <Box
-                                                                        onClick={() => { if (!isEditing && !busy) (active && isPlaying ? togglePlay() : playTrack(t)); }}
+                                                                        onClick={handleRowClick}
                                                                         sx={{
                                                                             display: 'flex', alignItems: 'center', gap: 0.5,
                                                                             px: 0.75, py: 0.5, mb: 0.5, borderRadius: 1.5,
@@ -965,9 +966,9 @@ export function AudioClient() {
                                                                         ) : (
                                                                             <Typography
                                                                                 noWrap
-                                                                                onClick={e => e.stopPropagation()}
+                                                                                onClick={e => { e.stopPropagation(); handleRowClick(); }}
                                                                                 onDoubleClick={() => { setEditingId(t.id); setDraftTitle(t.title); setDraftFolderId(t.folder_id); }}
-                                                                                sx={{ flexGrow: 1, minWidth: 0, fontSize: '0.9rem', color: active ? '#64b5f6' : '#f0e8e8', cursor: 'default' }}
+                                                                                sx={{ flexGrow: 1, minWidth: 0, fontSize: '0.9rem', color: active ? '#64b5f6' : '#f0e8e8', cursor: isEditing ? 'default' : 'pointer' }}
                                                                             >
                                                                                 {t.title}
                                                                             </Typography>
@@ -1063,22 +1064,24 @@ export function AudioClient() {
                 borderLeft: '1px solid #252f42', backgroundColor: '#161c29',
                 px: 3, py: 3.5, gap: 2.5, overflowY: 'auto',
             }}>
-                <Box sx={{
-                    width: '100%', aspectRatio: '1 / 1', borderRadius: 3,
-                    background: 'linear-gradient(145deg, #252f42 0%, #1a2030 100%)',
-                    border: '1px solid #2d3748',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <AudiotrackIcon sx={{ fontSize: 64, color: currentTrack ? '#3d5280' : '#252f42' }} />
-                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{
+                        width: 48, height: 48, flexShrink: 0, borderRadius: 1.5,
+                        background: 'linear-gradient(145deg, #252f42 0%, #1a2030 100%)',
+                        border: '1px solid #2d3748',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <AudiotrackIcon sx={{ fontSize: 20, color: currentTrack ? '#3d5280' : '#252f42' }} />
+                    </Box>
 
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography noWrap sx={{ fontWeight: 700, fontSize: '1rem', color: currentTrack ? '#f0e8e8' : '#4a5568' }}>
-                        {currentTrack ? currentTrack.title : 'Nothing playing'}
-                    </Typography>
-                    <Typography noWrap sx={{ fontSize: '0.78rem', color: '#718096' }}>
-                        {currentFolder ? currentFolder.name : '—'}
-                    </Typography>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography noWrap sx={{ fontWeight: 700, fontSize: '1rem', color: currentTrack ? '#f0e8e8' : '#4a5568' }}>
+                            {currentTrack ? currentTrack.title : 'Nothing playing'}
+                        </Typography>
+                        <Typography noWrap sx={{ fontSize: '0.78rem', color: '#718096' }}>
+                            {currentFolder ? currentFolder.name : '—'}
+                        </Typography>
+                    </Box>
                 </Box>
 
                 {seekBar}
