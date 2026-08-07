@@ -624,8 +624,14 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
             // dvh, not vh: on iOS Safari `100vh` is the *large* viewport, which excludes
             // the browser chrome that is actually on screen. Sizing to it pushes the
             // bottom of this column — where the notes field lives — under the toolbar.
-            height: { xs: 'auto', sm: 'calc(100dvh - 72px)' },
-            minHeight: '100dvh',
+            // vh first, dvh only where supported. An unsupported unit invalidates the
+            // whole declaration, which would silently drop back to height:auto.
+            height: { xs: 'auto', sm: 'calc(100vh - 72px)' },
+            minHeight: '100vh',
+            '@supports (height: 100dvh)': {
+                height: { xs: 'auto', sm: 'calc(100dvh - 72px)' },
+                minHeight: '100dvh',
+            },
             backgroundColor: '#1e2535',
             color: '#f0e8e8',
             overflow: { xs: 'visible', sm: 'hidden' },
@@ -815,7 +821,15 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
             </Box>
 
             {/* ── Right: Timeline + Detail ── */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: { xs: 'calc(100dvh - 72px)', sm: 'auto' }, flexShrink: 0 }}>
+            <Box sx={{
+                flex: 1, display: 'flex', flexDirection: 'column', flexShrink: 0,
+                // On phones both children have height floors, so on a very short viewport
+                // they can exceed this column. Scroll rather than clip — `hidden` here is
+                // what made the notes field unreachable in the first place.
+                overflow: { xs: 'auto', sm: 'hidden' },
+                height: { xs: 'calc(100vh - 72px)', sm: 'auto' },
+                '@supports (height: 100dvh)': { height: { xs: 'calc(100dvh - 72px)', sm: 'auto' } },
+            }}>
 
                 {/* Timeline header */}
                 <Box sx={{
@@ -835,7 +849,12 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                         // Shrinks on phones so the detail panel below keeps its fixed
                         // height; holds a fixed 62% from sm up, as before.
                         flex: { xs: '1 1 0', sm: '0 0 62%' },
-                        minHeight: 0,
+                        // Never let this collapse. flex-basis 0 only draws height from the
+                        // parent's free space, and if the parent's height resolves to `auto`
+                        // (e.g. its calc() is invalid because dvh is unsupported) there is no
+                        // free space and this would shrink to 0 — taking every hour label
+                        // with it while the fixed-height panel below still rendered.
+                        minHeight: { xs: 180, sm: 0 },
                         // Actually scroll. hourHeight bottoms out at a 28px floor, so on a
                         // phone the 17-hour column is taller than this box — with `hidden`
                         // the late hours were simply unreachable. handleTimelineClick already
@@ -1059,7 +1078,7 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                     // the first thing squeezed out of view. Padding is tighter on xs, and
                     // the bottom inset keeps the field clear of the home indicator.
                     flex: { xs: '0 0 auto', sm: 1 },
-                    height: { xs: 240, sm: 'auto' },
+                    height: { xs: 220, sm: 'auto' },
                     borderTop: '1px solid #4a5568',
                     p: { xs: 2, sm: 3 },
                     pb: { xs: 'calc(16px + env(safe-area-inset-bottom))', sm: 3 },
