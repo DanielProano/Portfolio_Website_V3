@@ -10,7 +10,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
-interface Folder { id: number; name: string; color: string; }
+interface Folder { id: number; name: string; color: string; card_count: number; }
 interface Card { id: number; folder_id: number; front_text: string; back_text: string; }
 interface EditState { id: number | null; front: string; back: string; }
 
@@ -51,13 +51,19 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
     const [newFolderName, setNewFolderName] = useState('');
     const folderSavingRef = useRef(false);
 
+    const fetchFolders = useCallback(async () => {
+        try {
+            const res = await fetch('/api/flashcards/folders');
+            if (!res.ok) return;
+            const d = await res.json();
+            setFolders(d.folders ?? []);
+        } catch (e) { console.error(e); }
+    }, []);
+
     useEffect(() => {
         if (!canEdit) return;
-        fetch('/api/flashcards/folders')
-            .then(r => r.json())
-            .then(d => setFolders(d.folders ?? []))
-            .catch(console.error);
-    }, [canEdit]);
+        fetchFolders();
+    }, [canEdit, fetchFolders]);
 
     const startSession = useCallback((cards: Card[]) => {
         const shuffled = [...cards].sort(() => Math.random() - 0.5);
@@ -107,11 +113,20 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
         if (data.folder) setFolders(prev => [...prev, data.folder]);
     };
 
-    const deleteFolder = async (id: number, e: React.MouseEvent) => {
+    const deleteFolder = async (folder: Folder, e: React.MouseEvent) => {
         e.stopPropagation();
-        await fetch(`/api/flashcards/folders/${id}`, { method: 'DELETE' });
-        setFolders(prev => prev.filter(f => f.id !== id));
-        if (selectedFolderId === id) {
+        // Same confirmation the audio and ideas boards use: name the folder, and say
+        // how many cards the cascade takes with it.
+        const n = folder.card_count;
+        const warning = n > 0
+            ? `Delete "${folder.name}" and its ${n} card${n === 1 ? '' : 's'}?`
+            : `Delete the empty folder "${folder.name}"?`;
+        if (!window.confirm(warning)) return;
+
+        const res = await fetch(`/api/flashcards/folders/${folder.id}`, { method: 'DELETE' });
+        if (!res.ok) return;
+        setFolders(prev => prev.filter(f => f.id !== folder.id));
+        if (selectedFolderId === folder.id) {
             setSelectedFolderId(null);
             setAllCards([]);
             setStudyDeck([]);
@@ -152,6 +167,9 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                 const updated = [...allCards, data.card];
                 setAllCards(updated);
                 setStudyDeck(prev => [...prev, data.card]);
+                // Keep card_count in step so the delete confirmation stays truthful.
+                setFolders(prev => prev.map(f =>
+                    f.id === selectedFolderId ? { ...f, card_count: f.card_count + 1 } : f));
                 if (studyDeck.length === 0) setSessionDone(false);
             }
         } else {
@@ -177,6 +195,8 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
         const newDeck = studyDeck.filter(c => c.id !== cardId);
         setAllCards(newAll);
         setStudyDeck(newDeck);
+        setFolders(prev => prev.map(f =>
+            f.id === selectedFolderId ? { ...f, card_count: Math.max(0, f.card_count - 1) } : f));
         if (newDeck.length === 0) {
             setSessionDone(false);
             setDeckIndex(0);
@@ -443,7 +463,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                         {canEdit && (
                             <IconButton
                                 className="del"
-                                onClick={e => deleteFolder(folder.id, e)}
+                                onClick={e => deleteFolder(folder, e)}
                                 size="small"
                                 sx={{
                                     // No hover on touch — the handle would never appear otherwise.
