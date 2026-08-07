@@ -618,7 +618,10 @@ export function AudioClient() {
 
     const toggleIconSx = (active: boolean) => ({
         color: active ? '#90b4e8' : '#4a5568',
-        '&:hover': { color: '#90b4e8' },
+        // The hover color is the same blue as the "on" color, and iOS Safari leaves
+        // :hover stuck on the last-tapped element. Without this guard, toggling
+        // shuffle/repeat off still looks on until you tap somewhere else.
+        '@media (hover: hover)': { '&:hover': { color: '#90b4e8' } },
         '&.Mui-disabled': { color: '#2d3748' },
     });
 
@@ -784,7 +787,9 @@ export function AudioClient() {
                                         textTransform: 'none', fontWeight: 600,
                                         color: reorderMode ? '#64b5f6' : '#718096',
                                         backgroundColor: reorderMode ? '#252f42' : 'transparent',
-                                        '&:hover': { color: '#90b4e8', backgroundColor: reorderMode ? '#252f42' : 'transparent' },
+                                        '@media (hover: hover)': {
+                                            '&:hover': { color: '#90b4e8', backgroundColor: reorderMode ? '#252f42' : 'transparent' },
+                                        },
                                     }}
                                 >
                                     {reorderMode ? 'Done' : 'Reorder'}
@@ -882,10 +887,6 @@ export function AudioClient() {
                                                 touchAction: reorderMode ? 'none' : 'auto',
                                                 '&:hover .rowActions': { opacity: 1 },
                                             }}>
-                                            {reorderMode && (
-                                                <DragIndicatorIcon sx={{ fontSize: 22, color: '#4a5568', flexShrink: 0, pointerEvents: 'none' }} />
-                                            )}
-
                                             <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: 0.6 }}>
                                                 {isExpanded ? <ExpandMoreIcon sx={{ fontSize: 22 }} /> : <ChevronRightIcon sx={{ fontSize: 22 }} />}
                                             </IconButton>
@@ -956,9 +957,6 @@ export function AudioClient() {
                                                                             '&:hover .trackActions': { opacity: 1 },
                                                                         }}
                                                                     >
-                                                                        {reorderMode && (
-                                                                            <DragIndicatorIcon sx={{ fontSize: 20, color: '#4a5568', flexShrink: 0, pointerEvents: 'none' }} />
-                                                                        )}
                                                                         {isEditing ? (
                                                                             <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, alignItems: 'center', flexWrap: 'wrap', py: 0.5 }}>
                                                                                 <TextField

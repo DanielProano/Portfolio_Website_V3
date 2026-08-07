@@ -2,11 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { Box, Container, Typography, Stack, Chip, IconButton, Tooltip, Button } from '@mui/material';
-import Image from 'next/image';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import { Media, isVideo } from '@/components/Media';
 
-const projects = [
+/**
+ * Any `image` below may be a photo or a video (.mp4/.webm/.mov/.m4v) — <Media>
+ * picks the right element from the extension. Videos autoplay muted on a loop and
+ * occupy exactly the same box as a photo would. Add an optional `poster` (a still
+ * frame) alongside a video so the slot isn't blank while the clip buffers.
+ */
+
+/** A video slide holds longer than a photo so the clip is actually watchable. */
+const IMAGE_SLIDE_MS = 2000;
+const VIDEO_SLIDE_MS = 8000;
+
+type Slide = { id: number; image: string; poster?: string; title: string; href: string };
+type Highlight = { title: string; description: string; image?: string; poster?: string; link?: string };
+
+const projects: Slide[] = [
   { id: 1, image: '/projects/slideshow/team_with_kart.JPG', title: 'Autonomous Team', href: 'https://dannyproano.com/' },
   { id: 2, image: '/projects/slideshow/selfie_kart.jpg', title: 'Autonomous Racecar Selfie', href: 'https://dannyproano.com' },
   { id: 3, image: '/projects/slideshow/purt_team.jpeg', title: 'Autonomous UAV Research', href: 'https://dannyproano.com/' },
@@ -22,7 +36,7 @@ const projects = [
   { id: 13, image: '/projects/slideshow/per_car.jpeg', title: 'PER Racecar', href: 'https://dannyproano.com/' },
 ];
 
-const highlights = [
+const highlights: Highlight[] = [
   {
     title: "I made an Autonomous Racecar",
     description: "We won 1st place in the International Autonomous Karting Series! I built everything from the computer vision algorithm to cutting the steel for the chassis!",
@@ -98,12 +112,16 @@ export default function Home() {
   const handlePrev =() => setCurrentIndex((prev) => (prev - 1 + projects.length) % projects.length);
   const handleNext = () => setCurrentIndex((prev) => (prev + 1) % projects.length);
 
+  // Re-armed on every slide change, so the hold can depend on what the current
+  // slide is — and so a manual prev/next click restarts the clock instead of
+  // being cut short by an interval that was already most of the way through.
   useEffect(() => {
-    const interval = setInterval(() => {
+    const hold = isVideo(projects[currentIndex].image) ? VIDEO_SLIDE_MS : IMAGE_SLIDE_MS;
+    const timer = setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % projects.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+    }, hold);
+    return () => clearTimeout(timer);
+  }, [currentIndex]);
 
   return (
     <Container maxWidth={false} sx={{ py: 2, px: 0 }}>
@@ -126,13 +144,12 @@ export default function Home() {
           }}
         >
           <Box sx={{ mb: 2, borderRadius: 1, aspectRatio: '1', overflow: 'hidden' }}>
-            <Image
+            <Media
               src="/profile/self_autonomous.jpg"
               alt="Daniel Proano headshot"
               width={450}
               height={450}
               priority
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           </Box>
 
@@ -215,13 +232,13 @@ export default function Home() {
               boxShadow: 3,
             }}
           >
-            <Image
+            <Media
               src={projects[currentIndex].image}
+              poster={projects[currentIndex].poster}
               alt={projects[currentIndex].title}
               width={1025}
               height={1025}
               priority
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
 
             <Box
@@ -361,8 +378,9 @@ export default function Home() {
             >
               {project.image && (
                 <Box sx={{ width: '100%', aspectRatio: '16/9', position: 'relative' }}>
-                  <Image
+                  <Media
                     src={project.image}
+                    poster={project.poster}
                     alt={project.title}
                     fill
                     sizes="(min-width: 1200px) 33vw, 100vw"

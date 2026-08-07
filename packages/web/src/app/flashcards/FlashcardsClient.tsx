@@ -393,20 +393,28 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
     const isStudying = !!selectedFolderId && studyDeck.length > 0 && !sessionDone && !editingCard;
 
     return (
-        <Box sx={{ display: 'flex', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
 
-            {/* ── Sidebar ── */}
+            {/* ── Folders — a scrolling strip on phones, a sidebar from sm up ── */}
             <Box sx={{
-                width: { xs: 150, sm: 200 },
+                width: { xs: '100%', sm: 200 },
                 flexShrink: 0,
-                borderRight: '1px solid #3a4d6b',
+                borderRight: { xs: 'none', sm: '1px solid #3a4d6b' },
+                borderBottom: { xs: '1px solid #3a4d6b', sm: 'none' },
                 display: 'flex',
-                flexDirection: 'column',
-                p: 2,
-                gap: 0.5,
-                overflowY: 'auto',
+                flexDirection: { xs: 'row', sm: 'column' },
+                alignItems: { xs: 'center', sm: 'stretch' },
+                p: { xs: 1, sm: 2 },
+                gap: { xs: 0.75, sm: 0.5 },
+                overflowX: { xs: 'auto', sm: 'hidden' },
+                overflowY: { xs: 'hidden', sm: 'auto' },
+                '&::-webkit-scrollbar': { display: 'none' },
+                scrollbarWidth: 'none',
             }}>
-                <Typography sx={{ color: '#90b4e8', fontWeight: 700, mb: 1, fontSize: '0.75rem', letterSpacing: 1 }}>
+                <Typography sx={{
+                    display: { xs: 'none', sm: 'block' },
+                    color: '#90b4e8', fontWeight: 700, mb: 1, fontSize: '0.75rem', letterSpacing: 1,
+                }}>
                     FOLDERS
                 </Typography>
 
@@ -417,15 +425,19 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                         sx={{
                             display: 'flex', alignItems: 'center', gap: 1,
                             px: 1.5, py: 0.9, borderRadius: 2, cursor: 'pointer',
+                            flexShrink: 0,
+                            maxWidth: { xs: 160, sm: 'none' },
                             backgroundColor: selectedFolderId === folder.id ? '#2a3550' : 'transparent',
                             border: '1px solid',
-                            borderColor: selectedFolderId === folder.id ? '#3a4d6b' : 'transparent',
-                            '&:hover': { backgroundColor: '#1e2d46', '& .del': { opacity: 1 } },
+                            borderColor: selectedFolderId === folder.id ? '#3a4d6b' : { xs: '#253550', sm: 'transparent' },
+                            '@media (hover: hover)': {
+                                '&:hover': { backgroundColor: '#1e2d46', '& .del': { opacity: 1 } },
+                            },
                             transition: '0.15s',
                         }}
                     >
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: folder.color, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: '0.8rem', color: '#ddd', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <Typography sx={{ fontSize: '0.8rem', color: '#ddd', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {folder.name}
                         </Typography>
                         {canEdit && (
@@ -433,7 +445,12 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                                 className="del"
                                 onClick={e => deleteFolder(folder.id, e)}
                                 size="small"
-                                sx={{ opacity: 0, color: '#888', p: 0.25, '&:hover': { color: '#ff5252' }, transition: '0.15s' }}
+                                sx={{
+                                    // No hover on touch — the handle would never appear otherwise.
+                                    opacity: { xs: 0.6, sm: 0 },
+                                    color: '#888', p: 0.25, flexShrink: 0,
+                                    '&:hover': { color: '#ff5252' }, transition: '0.15s',
+                                }}
                             >
                                 <DeleteIcon sx={{ fontSize: 13 }} />
                             </IconButton>
@@ -455,8 +472,10 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                         variant="standard"
                         size="small"
                         sx={{
-                            mt: 0.5, px: 1.5,
-                            '& input': { color: '#ddd', fontSize: '0.8rem' },
+                            mt: { xs: 0, sm: 0.5 }, px: 1.5,
+                            flexShrink: 0, width: { xs: 150, sm: 'auto' },
+                            // 16px keeps iOS Safari from force-zooming the page on focus.
+                            '& input': { color: '#ddd', fontSize: { xs: '16px', sm: '0.8rem' } },
                             '& .MuiInput-underline:before': { borderColor: '#3a4d6b' },
                             '& .MuiInput-underline:after': { borderColor: '#90b4e8' },
                         }}
@@ -467,11 +486,14 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                         startIcon={<AddIcon sx={{ fontSize: 14 }} />}
                         sx={{
                             color: '#90b4e8', fontSize: '0.75rem', textTransform: 'none',
-                            justifyContent: 'flex-start', px: 1.5, py: 0.5, mt: 0.5,
+                            justifyContent: 'flex-start', px: 1.5, py: 0.5,
+                            mt: { xs: 0, sm: 0.5 },
+                            flexShrink: 0, minWidth: 'auto', whiteSpace: 'nowrap',
+                            '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.5 } },
                             '&:hover': { backgroundColor: '#1e2d46' },
                         }}
                     >
-                        Add Folder
+                        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Folder</Box>
                     </Button>
                 ))}
             </Box>
@@ -496,7 +518,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                         {canEdit ? (
                             <>
                                 <Typography variant="h6" sx={{ mb: 1, color: '#888' }}>Select a folder to start</Typography>
-                                <Typography variant="body2">or create one on the left</Typography>
+                                <Typography variant="body2">or create one with +</Typography>
                             </>
                         ) : (
                             <>

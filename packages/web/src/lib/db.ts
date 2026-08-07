@@ -35,6 +35,37 @@ function initSchema(pool: Pool) {
     pool.query(`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT ''`)
         .catch(() => {});
 
+    // Recurring events are materialized: every occurrence is a real calendar_events row
+    // sharing a series_id. That keeps drag-to-move, resize and delete working unchanged,
+    // since all of them address a row by id. The rule is kept here so occurrences can be
+    // regenerated and the horizon extended as the user navigates forward.
+    //
+    // timezone is load-bearing, not decorative: recurrence is defined in local wall-clock
+    // time, so "every Tuesday 6pm" must stay 6pm across a DST boundary. Generation casts
+    // through this zone rather than adding fixed offsets to an instant.
+    pool.query(`
+        CREATE TABLE IF NOT EXISTS calendar_series (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            freq TEXT NOT NULL,
+            until DATE,
+            timezone TEXT NOT NULL DEFAULT 'UTC',
+            materialized_through DATE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `).catch(err => console.error('[db] calendar_series table error:', err));
+
+    pool.query(`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS series_id INTEGER REFERENCES calendar_series(id) ON DELETE CASCADE`)
+        .catch(() => {});
+
+    // Set when a single occurrence is edited on its own. "Edit this and following" skips
+    // detached rows so a deliberate one-off change is never silently clobbered.
+    pool.query(`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS detached BOOLEAN NOT NULL DEFAULT FALSE`)
+        .catch(() => {});
+
+    pool.query(`CREATE INDEX IF NOT EXISTS calendar_events_series_idx ON calendar_events (series_id)`)
+        .catch(() => {});
+
     pool.query(`
         CREATE TABLE IF NOT EXISTS tasks (
             id SERIAL PRIMARY KEY,

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    Box, Typography, IconButton, Button, TextField, Tooltip, Collapse,
+    Box, Typography, IconButton, Button, TextField, Collapse,
     Select, MenuItem, Menu, ListItemIcon, ListItemText,
     Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
@@ -382,7 +382,7 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
                 <Box sx={{ maxWidth: 1200 }}>
 
                     {/* Header */}
-                    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, mb: 3 }}>
                         <Typography variant="h4" sx={{ fontWeight: 700 }}>Ideas</Typography>
                         <Button
                             startIcon={<DragIndicatorIcon />} onClick={() => setReorderMode(v => !v)} size="small"
@@ -396,10 +396,6 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
                             {reorderMode ? 'Done' : 'Reorder'}
                         </Button>
                     </Box>
-                    <Typography sx={{ color: '#718096', fontSize: '0.85rem', mb: 3 }}>
-                        Group ideas into folders. Drag to reorder, or drag an idea onto another folder to move it.
-                    </Typography>
-
                     {error && (
                         <Box sx={{ mb: 2, p: 1.5, borderRadius: 1, backgroundColor: '#2d2130', border: '1px solid #e57373' }}>
                             <Typography sx={{ color: '#e57373', fontSize: '0.85rem' }}>{error}</Typography>
@@ -419,8 +415,13 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
                                 return (
                                     <Box key={folder.id} data-folder-id={folder.id} sx={{ mb: 0.75 }}>
 
-                                        {/* Folder header */}
-                                        <Box sx={{
+                                        {/* Folder header — the whole row is the drag surface in reorder mode */}
+                                        <Box
+                                            onPointerDown={reorderMode ? e => startFolderDrag(e, folder.id, folderIndex) : undefined}
+                                            onPointerMove={reorderMode ? moveFolderDrag : undefined}
+                                            onPointerUp={reorderMode ? endFolderDrag : undefined}
+                                            onPointerCancel={reorderMode ? () => setFolderDrag(null) : undefined}
+                                            sx={{
                                             display: 'flex', alignItems: 'center', gap: 0.5,
                                             px: 1, py: 0.75, borderRadius: 2, minHeight: FOLDER_ROW_HEIGHT,
                                             backgroundColor: ideaHovering ? '#2a3550' : beingDragged ? '#1a2030' : '#252f42',
@@ -429,35 +430,21 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
                                             opacity: beingDragged ? 0.5 : 1,
                                             transition: folderDrag?.isDragging ? 'none' : 'background-color 0.15s, border-color 0.15s',
                                             userSelect: 'none',
+                                            cursor: reorderMode ? (folderDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
+                                            touchAction: reorderMode ? 'none' : 'auto',
                                             '&:hover .rowActions': { opacity: 1 },
                                         }}>
-                                            {reorderMode && (
-                                                <IconButton
-                                                    size="small"
-                                                    onPointerDown={e => startFolderDrag(e, folder.id, folderIndex)}
-                                                    onPointerMove={moveFolderDrag}
-                                                    onPointerUp={endFolderDrag}
-                                                    onPointerCancel={() => setFolderDrag(null)}
-                                                    sx={{
-                                                        color: '#4a5568', p: 0.75, touchAction: 'none',
-                                                        cursor: folderDrag?.isDragging ? 'grabbing' : 'grab',
-                                                        '&:hover': { color: '#90b4e8' },
-                                                    }}
-                                                >
-                                                    <DragIndicatorIcon sx={{ fontSize: 22 }} />
-                                                </IconButton>
-                                            )}
-
-                                            <IconButton size="small" onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: 0.6 }}>
+                                            <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: 0.6 }}>
                                                 {isExpanded ? <ExpandMoreIcon sx={{ fontSize: 22 }} /> : <ChevronRightIcon sx={{ fontSize: 22 }} />}
                                             </IconButton>
                                             <FolderIcon sx={{ color: '#90b4e8', fontSize: 20, flexShrink: 0 }} />
                                             <Typography
-                                                onClick={() => toggleFolder(folder.id)}
+                                                onClick={() => { if (!reorderMode) toggleFolder(folder.id); }}
                                                 noWrap
                                                 sx={{
                                                     flex: 1, minWidth: 0, fontWeight: 600, fontSize: '0.95rem', color: '#f0e8e8',
-                                                    cursor: 'pointer', '&:hover': { color: '#90b4e8' }, transition: 'color 0.15s',
+                                                    cursor: reorderMode ? 'inherit' : 'pointer',
+                                                    '&:hover': { color: reorderMode ? '#f0e8e8' : '#90b4e8' }, transition: 'color 0.15s',
                                                 }}
                                             >
                                                 {folder.name}
@@ -468,6 +455,7 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
 
                                             <IconButton
                                                 size="small" className="rowActions"
+                                                onPointerDown={e => e.stopPropagation()}
                                                 onClick={e => setFolderMenu({ el: e.currentTarget, folder })}
                                                 sx={{
                                                     color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 },
@@ -493,9 +481,14 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
                                                                 setDraftTitle(idea.title);
                                                                 setDraftFolderId(idea.folder_id);
                                                             };
+                                                            const rowDraggable = reorderMode && !isEditing;
                                                             return (
                                                                 <Box
                                                                     key={idea.id}
+                                                                    onPointerDown={rowDraggable ? e => startIdeaDrag(e, idea, ideaIndex) : undefined}
+                                                                    onPointerMove={rowDraggable ? moveIdeaDrag : undefined}
+                                                                    onPointerUp={rowDraggable ? endIdeaDrag : undefined}
+                                                                    onPointerCancel={rowDraggable ? () => setIdeaDrag(null) : undefined}
                                                                     sx={{
                                                                         display: 'flex', alignItems: 'center', gap: 0.5,
                                                                         px: 0.75, py: 0.5, mb: 0.5, borderRadius: 1.5,
@@ -505,6 +498,9 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
                                                                         borderColor: dragging ? '#64b5f6' : isEditing ? '#90b4e8' : '#2d3748',
                                                                         opacity: dragging ? 0.4 : 1,
                                                                         transition: ideaDrag?.isDragging ? 'none' : 'opacity 0.15s, border-color 0.15s',
+                                                                        cursor: rowDraggable ? (ideaDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
+                                                                        touchAction: rowDraggable ? 'none' : 'auto',
+                                                                        userSelect: rowDraggable ? 'none' : 'auto',
                                                                         '&:hover .ideaActions': { opacity: 1 },
                                                                     }}
                                                                 >
@@ -541,38 +537,21 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
                                                                     ) : (
                                                                         <Typography
                                                                             noWrap
-                                                                            onClick={beginEdit}
+                                                                            onClick={() => { if (!reorderMode) beginEdit(); }}
                                                                             sx={{
                                                                                 flexGrow: 1, minWidth: 0, fontSize: '0.9rem',
-                                                                                fontWeight: 600, color: '#f0e8e8', cursor: 'pointer',
-                                                                                '&:hover': { color: '#90b4e8' }, transition: 'color 0.15s',
+                                                                                fontWeight: 600, color: '#f0e8e8',
+                                                                                cursor: reorderMode ? 'inherit' : 'pointer',
+                                                                                '&:hover': { color: reorderMode ? '#f0e8e8' : '#90b4e8' }, transition: 'color 0.15s',
                                                                             }}
                                                                         >
                                                                             {idea.title || 'Untitled'}
                                                                         </Typography>
                                                                     )}
 
-                                                                    {reorderMode && (
-                                                                        <Tooltip title="Reorder, or drag onto a folder to move it there">
-                                                                            <IconButton
-                                                                                size="small"
-                                                                                onPointerDown={e => { if (!isEditing) startIdeaDrag(e, idea, ideaIndex); }}
-                                                                                onPointerMove={moveIdeaDrag}
-                                                                                onPointerUp={endIdeaDrag}
-                                                                                onPointerCancel={() => setIdeaDrag(null)}
-                                                                                onClick={e => e.stopPropagation()}
-                                                                                sx={{
-                                                                                    color: '#4a5568', p: 0.75, touchAction: 'none',
-                                                                                    cursor: ideaDrag?.isDragging ? 'grabbing' : 'grab',
-                                                                                    '&:hover': { color: '#90b4e8' },
-                                                                                }}
-                                                                            >
-                                                                                <DragIndicatorIcon sx={{ fontSize: 20 }} />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                    )}
                                                                     <IconButton
                                                                         size="small" className="ideaActions"
+                                                                        onPointerDown={e => e.stopPropagation()}
                                                                         onClick={e => { e.stopPropagation(); setIdeaMenu({ el: e.currentTarget, idea }); }}
                                                                         sx={{
                                                                             color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 },

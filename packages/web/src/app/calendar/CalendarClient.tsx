@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Box, Typography, IconButton, Button, TextField, Tooltip,
+    Box, Typography, IconButton, Button, TextField, Tooltip, MenuItem,
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -23,7 +23,13 @@ type CalendarEvent = {
     start_time: string;
     end_time: string;
     color: string;
+    series_id?: number | null;
 };
+
+type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/** Which occurrences an edit or delete applies to. */
+type Scope = 'this' | 'following' | 'all';
 
 type CalendarTask = {
     id: number;
@@ -47,6 +53,8 @@ type FormData = {
     endTime: string;
     description: string;
     color: string;
+    repeat: Repeat;
+    repeatUntil: string;
 };
 
 type EventDrag = {
@@ -67,6 +75,20 @@ const EVENT_COLORS = [
     '#64b5f6', '#81c784', '#e57373', '#ffb74d',
     '#ba68c8', '#4dd0e1', '#fff176', '#f06292',
 ];
+
+const REPEAT_LABELS: Record<Repeat, string> = {
+    none: 'Does not repeat',
+    daily: 'Daily',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+};
+
+const SCOPE_LABELS: Record<Scope, string> = {
+    this: 'This event only',
+    following: 'This and following events',
+    all: 'All events in the series',
+};
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
@@ -139,6 +161,8 @@ function emptyForm(date: Date, startH = 9, startM = 0): FormData {
         endTime: `${String(endH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`,
         description: '',
         color: EVENT_COLORS[0],
+        repeat: 'none',
+        repeatUntil: '',
     };
 }
 
@@ -155,6 +179,10 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
     const [formOpen, setFormOpen] = useState(false);
     const [formData, setFormData] = useState<FormData>(emptyForm(today));
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [editingSeriesId, setEditingSeriesId] = useState<number | null>(null);
+    const [scopePrompt, setScopePrompt] = useState<
+        { action: 'edit' } | { action: 'delete'; eventId: number } | null
+    >(null);
     const [eventDrag, setEventDrag] = useState<EventDrag | null>(null);
     const [taskCreatedId, setTaskCreatedId] = useState<number | null>(null);
     const [quickNotes, setQuickNotes] = useState('');
@@ -260,6 +288,7 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
         const clampedHour = Math.max(DAY_START, Math.min(DAY_END - 1, hour));
 
         setEditingId(null);
+        setEditingSeriesId(null);
         setFormData(emptyForm(selectedDay, clampedHour, minute));
         setFormOpen(true);
     };
@@ -304,11 +333,17 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
             endTime: `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`,
             description: event.description ?? '',
             color: event.color,
+            // Recurrence is a property of the series, not of one occurrence — editing an
+            // occurrence never re-creates the rule, so this stays 'none'.
+            repeat: 'none',
+            repeatUntil: '',
         });
+        setEditingSeriesId(event.series_id ?? null);
         setFormOpen(true);
     };
 
-    const handleSave = async () => {
+    /** Runs the actual write once a scope is known (or immediately for non-series events). */
+    const commitSave = async (scope: Scope) => {
         const [h1, m1] = formData.startTime.split(':').map(Number);
         const [h2, m2] = formData.endTime.split(':').map(Number);
         // Parse date as local midnight — new Date("YYYY-MM-DD") would be UTC midnight,
@@ -329,29 +364,47 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
         // fetchEvents below reconciles the server state (e.g. replaces the temp ID on creates).
         setFormOpen(false);
         setSelectedEvent(null);
+        setEditingSeriesId(null);
         if (editingId !== null) {
             setEvents(prev => prev.map(e => e.id === editingId ? { ...e, ...body } : e));
         } else {
             setEvents(prev => [...prev, { id: -1, ...body }]);
         }
 
-        let res: Response;
         if (editingId !== null) {
-            res = await fetch(`/api/calendar/${editingId}`, {
+            await fetch(`/api/calendar/${editingId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
+                body: JSON.stringify({ ...body, scope }),
             });
         } else {
-            res = await fetch('/api/calendar', {
+            await fetch('/api/calendar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
+                body: JSON.stringify({
+                    ...body,
+                    recurrence: formData.repeat === 'none' ? null : {
+                        freq: formData.repeat,
+                        until: formData.repeatUntil || null,
+                        // The server generates occurrences in this zone, which is what
+                        // keeps the wall-clock time stable across DST.
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    },
+                }),
             });
         }
 
         // Always reconcile — reverts on failure, assigns real ID on create
         await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+    };
+
+    const handleSave = () => {
+        // Editing one occurrence of a series is ambiguous, so ask what it applies to.
+        if (editingId !== null && editingSeriesId) {
+            setScopePrompt({ action: 'edit' });
+            return;
+        }
+        commitSave('this');
     };
 
     const handleCreateTaskFromEvent = async (event: CalendarEvent) => {
@@ -377,10 +430,26 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        await fetch(`/api/calendar/${id}`, { method: 'DELETE' });
+    const commitDelete = async (id: number, scope: Scope) => {
+        await fetch(`/api/calendar/${id}?scope=${scope}`, { method: 'DELETE' });
         setSelectedEvent(null);
         await fetchEvents(viewMonth.getFullYear(), viewMonth.getMonth());
+    };
+
+    const handleDelete = (event: CalendarEvent) => {
+        if (event.series_id) {
+            setScopePrompt({ action: 'delete', eventId: event.id });
+            return;
+        }
+        commitDelete(event.id, 'this');
+    };
+
+    const resolveScope = (scope: Scope) => {
+        const prompt = scopePrompt;
+        setScopePrompt(null);
+        if (!prompt) return;
+        if (prompt.action === 'edit') commitSave(scope);
+        else commitDelete(prompt.eventId, scope);
     };
 
     // ── Event drag to reschedule ──
@@ -552,8 +621,11 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
         <Box sx={{
             display: 'flex',
             flexDirection: { xs: 'column', sm: 'row' },
-            height: { xs: 'auto', sm: 'calc(100vh - 72px)' },
-            minHeight: '100vh',
+            // dvh, not vh: on iOS Safari `100vh` is the *large* viewport, which excludes
+            // the browser chrome that is actually on screen. Sizing to it pushes the
+            // bottom of this column — where the notes field lives — under the toolbar.
+            height: { xs: 'auto', sm: 'calc(100dvh - 72px)' },
+            minHeight: '100dvh',
             backgroundColor: '#1e2535',
             color: '#f0e8e8',
             overflow: { xs: 'visible', sm: 'hidden' },
@@ -743,7 +815,7 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
             </Box>
 
             {/* ── Right: Timeline + Detail ── */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: { xs: 'calc(100vh - 72px)', sm: 'auto' }, flexShrink: 0 }}>
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: { xs: 'calc(100dvh - 72px)', sm: 'auto' }, flexShrink: 0 }}>
 
                 {/* Timeline header */}
                 <Box sx={{
@@ -753,11 +825,6 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                     <Typography variant="h6" sx={{ color: '#f0e8e8', fontWeight: 600 }}>
                         {selectedDay.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
                     </Typography>
-                    {canEdit && (
-                        <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic' }}>
-                            Click to add · Drag to reschedule
-                        </Typography>
-                    )}
                 </Box>
 
                 {/* Timeline scroll area */}
@@ -765,8 +832,15 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                     ref={timelineScrollRef}
                     onClick={handleTimelineClick}
                     sx={{
-                        flex: '0 0 62%',
-                        overflow: 'hidden',
+                        // Shrinks on phones so the detail panel below keeps its fixed
+                        // height; holds a fixed 62% from sm up, as before.
+                        flex: { xs: '1 1 0', sm: '0 0 62%' },
+                        minHeight: 0,
+                        // Actually scroll. hourHeight bottoms out at a 28px floor, so on a
+                        // phone the 17-hour column is taller than this box — with `hidden`
+                        // the late hours were simply unreachable. handleTimelineClick already
+                        // compensates for scrollTop, so this is what was intended.
+                        overflow: 'auto',
                         position: 'relative',
                         cursor: canEdit ? 'crosshair' : 'default',
                     }}
@@ -859,7 +933,10 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                                     <Typography sx={{ fontSize: '0.68rem', color: '#1e253599' }}>
                                         {formatTime(event.start_time)} – {formatTime(event.end_time)}
                                     </Typography>
-                                    {visualHeight > 54 && (event.description || showNotesPanel) && (
+                                    {/* 50, not 54: hourHeight bottoms out at its 28px floor on phones,
+                                        making a 2-hour event exactly 54px — which `> 54` excluded, so
+                                        the inline box appeared on desktop but never on mobile. */}
+                                    {visualHeight > 50 && (event.description || showNotesPanel) && (
                                         <Box
                                             sx={{ position: 'absolute', top: '30px', left: '4px', right: '4px', bottom: '10px', zIndex: 2, overflow: 'hidden' }}
                                             onPointerDown={showNotesPanel ? e => e.stopPropagation() : undefined}
@@ -977,9 +1054,15 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
 
                 {/* ── Detail panel ── */}
                 <Box sx={{
-                    flex: 1,
+                    // Fixed slice on phones rather than `flex: 1`: the notes field is the
+                    // last thing in here, so when this panel was the flexible one it was
+                    // the first thing squeezed out of view. Padding is tighter on xs, and
+                    // the bottom inset keeps the field clear of the home indicator.
+                    flex: { xs: '0 0 auto', sm: 1 },
+                    height: { xs: 240, sm: 'auto' },
                     borderTop: '1px solid #4a5568',
-                    p: 3,
+                    p: { xs: 2, sm: 3 },
+                    pb: { xs: 'calc(16px + env(safe-area-inset-bottom))', sm: 3 },
                     overflowY: 'auto',
                     backgroundColor: '#252f42',
                 }}>
@@ -1006,7 +1089,7 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Delete">
-                                                <IconButton onClick={() => handleDelete(selectedEvent.id)} sx={{ color: '#e57373', p: { xs: 1, sm: 0.5 } }}>
+                                                <IconButton onClick={() => handleDelete(selectedEvent)} sx={{ color: '#e57373', p: { xs: 1, sm: 0.5 } }}>
                                                     <DeleteIcon sx={{ fontSize: { xs: '1.4rem', sm: '1.1rem' } }} />
                                                 </IconButton>
                                             </Tooltip>
@@ -1153,6 +1236,46 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                             inputProps={{ style: { color: '#f0e8e8' } }}
                             sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } } }}
                         />
+                        {/* Recurrence is only offered on create — an existing occurrence
+                            belongs to a series whose rule is edited by scope, not re-declared. */}
+                        {editingId === null && (
+                            <>
+                                <TextField
+                                    select
+                                    label="Repeats"
+                                    value={formData.repeat}
+                                    onChange={e => setFormData(f => ({ ...f, repeat: e.target.value as Repeat }))}
+                                    size="small"
+                                    fullWidth
+                                    InputLabelProps={{ sx: { color: '#aaa' } }}
+                                    SelectProps={{ MenuProps: { PaperProps: { sx: { backgroundColor: '#2d3748', color: '#f0e8e8', backgroundImage: 'none' } } } }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } },
+                                        '& .MuiSelect-select': { color: '#f0e8e8' },
+                                        '& .MuiSvgIcon-root': { color: '#718096' },
+                                    }}
+                                >
+                                    {(Object.keys(REPEAT_LABELS) as Repeat[]).map(r => (
+                                        <MenuItem key={r} value={r}>{REPEAT_LABELS[r]}</MenuItem>
+                                    ))}
+                                </TextField>
+                                {formData.repeat !== 'none' && (
+                                    <TextField
+                                        label="Repeat until"
+                                        type="date"
+                                        value={formData.repeatUntil}
+                                        onChange={e => setFormData(f => ({ ...f, repeatUntil: e.target.value }))}
+                                        size="small"
+                                        fullWidth
+                                        helperText="Leave empty to repeat indefinitely"
+                                        InputLabelProps={{ shrink: true, sx: { color: '#aaa' } }}
+                                        inputProps={{ style: { color: '#f0e8e8' } }}
+                                        FormHelperTextProps={{ sx: { color: '#4a5568', fontSize: '0.7rem', ml: 0 } }}
+                                        sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } } }}
+                                    />
+                                )}
+                            </>
+                        )}
                         <Box>
                             <Typography sx={{ color: '#aaa', fontSize: '0.8rem', mb: 1 }}>Color</Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1176,7 +1299,7 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
 
                     {/* Actions */}
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 2, pb: 2 }}>
-                        <Button onClick={() => setFormOpen(false)} sx={{ color: '#aaa' }}>Cancel</Button>
+                        <Button onClick={() => { setFormOpen(false); setEditingSeriesId(null); }} sx={{ color: '#aaa' }}>Cancel</Button>
                         <Button
                             onClick={handleSave}
                             disabled={!formData.title}
@@ -1187,6 +1310,58 @@ export function CalendarClient({ canEdit }: { canEdit: boolean }) {
                         </Button>
                     </Box>
                 </Box>
+            )}
+
+            {/* Scope prompt — shown when editing or deleting one occurrence of a series */}
+            {scopePrompt && (
+                <>
+                    <Box
+                        onClick={() => setScopePrompt(null)}
+                        sx={{ position: 'fixed', inset: 0, zIndex: 1399, backgroundColor: 'rgba(0,0,0,0.5)' }}
+                    />
+                    <Box sx={{
+                        position: 'fixed',
+                        left: { xs: 0, sm: '50%' },
+                        right: { xs: 0, sm: 'auto' },
+                        bottom: { xs: 0, sm: 'auto' },
+                        top: { xs: 'auto', sm: '50%' },
+                        transform: { xs: 'none', sm: 'translate(-50%, -50%)' },
+                        width: { xs: 'auto', sm: '340px' },
+                        zIndex: 1400,
+                        backgroundColor: '#2d3748',
+                        color: '#f0e8e8',
+                        borderRadius: { xs: '12px 12px 0 0', sm: '8px' },
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                        border: '1px solid #4a5568',
+                    }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: '1rem', px: 2, py: 1.5, borderBottom: '1px solid #4a5568' }}>
+                            {scopePrompt.action === 'delete' ? 'Delete recurring event' : 'Edit recurring event'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', p: 1 }}>
+                            {(Object.keys(SCOPE_LABELS) as Scope[]).map(s => (
+                                <Button
+                                    key={s}
+                                    onClick={() => resolveScope(s)}
+                                    sx={{
+                                        justifyContent: 'flex-start', textTransform: 'none',
+                                        color: '#f0e8e8', px: 2, py: 1.25, borderRadius: 1,
+                                        '&:hover': { backgroundColor: '#3a4255' },
+                                    }}
+                                >
+                                    {SCOPE_LABELS[s]}
+                                </Button>
+                            ))}
+                        </Box>
+                        <Box sx={{
+                            display: 'flex', justifyContent: 'flex-end', px: 2,
+                            pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1.5 },
+                        }}>
+                            <Button onClick={() => setScopePrompt(null)} sx={{ color: '#aaa', textTransform: 'none' }}>
+                                Cancel
+                            </Button>
+                        </Box>
+                    </Box>
+                </>
             )}
         </Box>
     );

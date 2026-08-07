@@ -219,6 +219,18 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
         setFormOpen(true);
     };
 
+    /**
+     * iOS Safari pans and scales the visual viewport to keep a focused field above the
+     * keyboard. If React unmounts that field while it still has focus, Safari never gets
+     * a blur to undo it, so the page is left zoomed in after the sheet closes. Blurring
+     * first — while the input is still in the DOM — dismisses the keyboard and lets the
+     * viewport settle back before the unmount.
+     */
+    const closeForm = () => {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        setFormOpen(false);
+    };
+
     // ── CRUD ──
 
     const handleSave = async () => {
@@ -242,7 +254,7 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
             });
         }
         if (!res.ok) return;
-        setFormOpen(false);
+        closeForm();
         await fetchTasks();
     };
 
@@ -393,7 +405,7 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
             {canEdit && formOpen && (
                 <>
                 <Box
-                    onClick={() => setFormOpen(false)}
+                    onClick={closeForm}
                     sx={{ position: 'fixed', inset: 0, zIndex: 1299, backgroundColor: 'rgba(0,0,0,0.5)' }}
                 />
                 <Box sx={{
@@ -422,7 +434,7 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                         <Typography sx={{ fontWeight: 600, fontSize: { xs: '1rem', lg: '1.1rem' } }}>
                             {editingId !== null ? 'Edit Task' : 'New Task'}
                         </Typography>
-                        <IconButton size="small" onClick={() => setFormOpen(false)} sx={{ color: '#718096' }}>
+                        <IconButton size="small" onClick={closeForm} sx={{ color: '#718096' }}>
                             <CloseIcon fontSize="small" />
                         </IconButton>
                     </Box>
@@ -462,7 +474,7 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                         // home indicator; without this inset the buttons sit beneath it.
                         pb: { xs: 'calc(16px + env(safe-area-inset-bottom))', lg: 2.5 },
                     }}>
-                        <Button onClick={() => setFormOpen(false)} sx={{ color: '#aaa', textTransform: 'none', fontSize: { xs: '0.875rem', lg: '1rem' } }}>Cancel</Button>
+                        <Button onClick={closeForm} sx={{ color: '#aaa', textTransform: 'none', fontSize: { xs: '0.875rem', lg: '1rem' } }}>Cancel</Button>
                         <Button onClick={handleSave} disabled={!formData.title} variant="contained"
                             sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, fontSize: { xs: '0.875rem', lg: '1rem' }, '&:hover': { backgroundColor: '#64b5f6' } }}>
                             Save
