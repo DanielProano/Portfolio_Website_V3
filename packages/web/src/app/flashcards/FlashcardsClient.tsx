@@ -1,10 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Typography, Button, IconButton, TextField, Tooltip } from '@mui/material';
+import {
+    Box, Typography, Button, IconButton, TextField, Tooltip,
+    Menu, MenuItem, ListItemIcon, ListItemText,
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -50,6 +54,10 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
     const [addingFolder, setAddingFolder] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
     const folderSavingRef = useRef(false);
+
+    // Folder actions live behind a ⋮ menu, as in the audio and ideas boards — a bare
+    // trash icon on the row puts a destructive, cascading delete one stray tap away.
+    const [folderMenu, setFolderMenu] = useState<{ el: HTMLElement; folder: Folder } | null>(null);
 
     const fetchFolders = useCallback(async () => {
         try {
@@ -113,8 +121,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
         if (data.folder) setFolders(prev => [...prev, data.folder]);
     };
 
-    const deleteFolder = async (folder: Folder, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const deleteFolder = async (folder: Folder) => {
         // Same confirmation the audio and ideas boards use: name the folder, and say
         // how many cards the cascade takes with it.
         const n = folder.card_count;
@@ -451,7 +458,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                             border: '1px solid',
                             borderColor: selectedFolderId === folder.id ? '#3a4d6b' : { xs: '#253550', sm: 'transparent' },
                             '@media (hover: hover)': {
-                                '&:hover': { backgroundColor: '#1e2d46', '& .del': { opacity: 1 } },
+                                '&:hover': { backgroundColor: '#1e2d46', '& .rowActions': { opacity: 1 } },
                             },
                             transition: '0.15s',
                         }}
@@ -462,17 +469,17 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                         </Typography>
                         {canEdit && (
                             <IconButton
-                                className="del"
-                                onClick={e => deleteFolder(folder, e)}
+                                className="rowActions"
+                                onClick={e => { e.stopPropagation(); setFolderMenu({ el: e.currentTarget, folder }); }}
                                 size="small"
                                 sx={{
-                                    // No hover on touch — the handle would never appear otherwise.
+                                    // No hover on touch — the control would never appear otherwise.
                                     opacity: { xs: 0.6, sm: 0 },
                                     color: '#888', p: 0.25, flexShrink: 0,
-                                    '&:hover': { color: '#ff5252' }, transition: '0.15s',
+                                    '&:hover': { color: '#f0e8e8' }, transition: '0.15s',
                                 }}
                             >
-                                <DeleteIcon sx={{ fontSize: 13 }} />
+                                <MoreVertIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                         )}
                     </Box>
@@ -831,6 +838,28 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                     </Box>
                 )}
             </Box>
+
+            {/* Folder menu — same shape as the audio and ideas boards */}
+            <Menu
+                anchorEl={folderMenu?.el ?? null}
+                open={folderMenu !== null}
+                onClose={() => setFolderMenu(null)}
+                slotProps={{
+                    paper: {
+                        sx: {
+                            backgroundColor: '#252f42', color: '#f0e8e8', backgroundImage: 'none',
+                            border: '1px solid #3a4255', minWidth: 180,
+                            '& .MuiMenuItem-root': { fontSize: '0.85rem' },
+                            '& .MuiListItemIcon-root': { color: '#90b4e8', minWidth: 32 },
+                        },
+                    },
+                }}
+            >
+                <MenuItem onClick={() => { const f = folderMenu?.folder; setFolderMenu(null); if (f) deleteFolder(f); }}>
+                    <ListItemIcon><DeleteOutlineIcon fontSize="small" sx={{ color: '#e57373' }} /></ListItemIcon>
+                    <ListItemText sx={{ color: '#e57373' }}>Delete folder</ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 }
