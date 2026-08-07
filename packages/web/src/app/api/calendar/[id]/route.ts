@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionSafe } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
 async function getAuthenticatedUserId(): Promise<string | null> {
-    const session = await getSessionSafe();
+    const session = await getUserSession();
     return session?.user?.sub ?? null;
 }
 

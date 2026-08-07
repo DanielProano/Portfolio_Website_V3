@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    Box, Typography, IconButton, Button, Checkbox, Chip,
+    Box, Typography, IconButton, Button,
     TextField, Select, MenuItem, FormControl, InputLabel, Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -17,7 +17,6 @@ type Task = {
     title: string;
     description: string;
     status: 'todo' | 'in_progress' | 'done';
-    priority: 'low' | 'medium' | 'high';
     due_date: string | null;
     due_time: string | null;
     sort_order: number | null;
@@ -32,18 +31,11 @@ type FormData = {
     title: string;
     description: string;
     status: 'todo' | 'in_progress' | 'done';
-    priority: 'low' | 'medium' | 'high';
     due_date: string;
     due_time: string;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const PRIORITY_COLORS: Record<string, string> = {
-    low: '#81c784',
-    medium: '#ffb74d',
-    high: '#e57373',
-};
 
 const FILTER_LABELS: Record<TaskFilter, string> = {
     all: 'All',
@@ -57,7 +49,9 @@ const STATUS_FILTERS: TaskFilter[] = ['todo', 'in_progress', 'done'];
 const inputSx = {
     '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#4a5568' } },
     '& .MuiInputLabel-root': { color: '#aaa', fontSize: { xs: '0.875rem', lg: '1rem' } },
-    '& .MuiInputBase-input': { fontSize: { xs: '0.875rem', lg: '1rem' } },
+    // 16px is not cosmetic: iOS Safari force-zooms the whole page whenever a focused
+    // input computes to less than 16px. Anything smaller here re-introduces that zoom.
+    '& .MuiInputBase-input': { fontSize: { xs: '16px', lg: '1rem' } },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,7 +59,7 @@ const inputSx = {
 const TASK_ROW_HEIGHT = 72;
 
 function emptyForm(): FormData {
-    return { title: '', description: '', status: 'todo', priority: 'medium', due_date: '', due_time: '' };
+    return { title: '', description: '', status: 'todo', due_date: '', due_time: '' };
 }
 
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
@@ -176,7 +170,6 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                         title: draggedTask.title,
                         description: draggedTask.description,
                         status: tab,
-                        priority: draggedTask.priority,
                         due_date: draggedTask.due_date,
                         due_time: draggedTask.due_time,
                     }),
@@ -220,7 +213,6 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
             title: task.title,
             description: task.description,
             status: task.status,
-            priority: task.priority,
             due_date: task.due_date ?? '',
             due_time: task.due_time ?? '',
         });
@@ -256,23 +248,6 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
 
     const handleDelete = async (id: number) => {
         await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-        await fetchTasks();
-    };
-
-    const handleToggle = async (task: Task) => {
-        const newStatus = task.status === 'done' ? 'todo' : 'done';
-        await fetch(`/api/tasks/${task.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: task.title,
-                description: task.description,
-                status: newStatus,
-                priority: task.priority,
-                due_date: task.due_date,
-                due_time: task.due_time,
-            }),
-        });
         await fetchTasks();
     };
 
@@ -343,7 +318,6 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                 ) : (
                     displayedTasks.map((task, index) => {
                         const dueLabel = formatDueDate(task.due_date, task.due_time);
-                        const isDone = task.status === 'done';
                         const isBeingDragged = taskDrag?.id === task.id && taskDrag.isDragging;
                         return (
                             <Box
@@ -360,27 +334,18 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                                     display: 'flex',
                                     alignItems: 'flex-start',
                                     gap: { xs: 1, lg: 1.5 },
-                                    opacity: isBeingDragged ? 0.5 : isDone ? 0.65 : 1,
+                                    opacity: isBeingDragged ? 0.5 : 1,
                                     outline: isBeingDragged ? '1px solid #64b5f6' : 'none',
                                     transition: taskDrag?.isDragging ? 'none' : 'opacity 0.2s',
                                     cursor: canEdit ? (taskDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
                                     userSelect: 'none',
                                 }}
                             >
-                                <Checkbox
-                                    checked={isDone}
-                                    onPointerDown={e => e.stopPropagation()}
-                                    onChange={() => canEdit && handleToggle(task)}
-                                    disabled={!canEdit}
-                                    size="small"
-                                    sx={{ color: '#4a5568', '&.Mui-checked': { color: '#90b4e8' }, mt: '-2px', p: 0.5 }}
-                                />
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography sx={{
                                         fontWeight: 700,
                                         fontSize: { xs: '0.95rem', lg: '1.05rem' },
-                                        textDecoration: isDone ? 'line-through' : 'none',
-                                        color: isDone ? '#718096' : '#f0e8e8',
+                                        color: '#f0e8e8',
                                     }}>
                                         {task.title}
                                     </Typography>
@@ -398,18 +363,6 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                                     )}
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                                    <Chip
-                                        label={task.priority}
-                                        size="small"
-                                        sx={{
-                                            backgroundColor: `${PRIORITY_COLORS[task.priority]}22`,
-                                            color: PRIORITY_COLORS[task.priority],
-                                            border: `1px solid ${PRIORITY_COLORS[task.priority]}55`,
-                                            fontSize: { xs: '0.68rem', lg: '0.75rem' },
-                                            height: { xs: '20px', lg: '24px' },
-                                            textTransform: 'capitalize',
-                                        }}
-                                    />
                                     {dueLabel && (
                                         <Typography sx={{ color: '#aaa', fontSize: { xs: '0.78rem', lg: '0.85rem' }, whiteSpace: 'nowrap' }}>
                                             {dueLabel}
@@ -436,20 +389,32 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                 )}
             </Box>
 
-            {/* Centered form modal */}
+            {/* Form modal — bottom sheet on phones, centered dialog from sm up */}
             {canEdit && formOpen && (
+                <>
+                <Box
+                    onClick={() => setFormOpen(false)}
+                    sx={{ position: 'fixed', inset: 0, zIndex: 1299, backgroundColor: 'rgba(0,0,0,0.5)' }}
+                />
                 <Box sx={{
                     position: 'fixed',
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
                     zIndex: 1300,
-                    width: { xs: '95vw', sm: '400px', lg: '480px' },
-                    maxHeight: '90vh',
+                    // Phones: pin to the bottom edge so the sheet grows upward and the
+                    // keyboard never pushes it off-centre. Centred dialog from sm up.
+                    left: { xs: 0, sm: '50%' },
+                    right: { xs: 0, sm: 'auto' },
+                    bottom: { xs: 0, sm: 'auto' },
+                    top: { xs: 'auto', sm: '50%' },
+                    transform: { xs: 'none', sm: 'translate(-50%, -50%)' },
+                    width: { xs: 'auto', sm: '400px', lg: '480px' },
+                    // dvh, not vh: iOS reports vh against the URL-bar-retracted viewport,
+                    // so a vh-sized sheet overflows the actually-visible area.
+                    maxHeight: { xs: '85dvh', sm: '90dvh' },
                     overflowY: 'auto',
+                    WebkitOverflowScrolling: 'touch',
                     backgroundColor: '#2d3748',
                     color: '#f0e8e8',
-                    borderRadius: '8px',
+                    borderRadius: { xs: '12px 12px 0 0', sm: '8px' },
                     boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                     border: '1px solid #4a5568',
                 }}>
@@ -469,26 +434,16 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                             InputLabelProps={{ sx: { color: '#aaa' } }} inputProps={{ style: { color: '#f0e8e8' } }} sx={inputSx} />
                         <TextField label="Description" value={formData.description}
                             onChange={e => setFormData(f => ({ ...f, description: e.target.value }))}
-                            multiline rows={3} fullWidth size="small"
+                            multiline minRows={2} maxRows={4} fullWidth size="small"
                             InputLabelProps={{ sx: { color: '#aaa' } }} inputProps={{ style: { color: '#f0e8e8' } }} sx={inputSx} />
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                            <FormControl size="small" fullWidth sx={inputSx}>
-                                <InputLabel sx={{ color: '#aaa' }}>Status</InputLabel>
-                                <Select value={formData.status} onChange={e => setFormData(f => ({ ...f, status: e.target.value as Task['status'] }))} label="Status" sx={{ color: '#f0e8e8' }}>
-                                    <MenuItem value="todo">Todo</MenuItem>
-                                    <MenuItem value="in_progress">In Progress</MenuItem>
-                                    <MenuItem value="done">Done</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <FormControl size="small" fullWidth sx={inputSx}>
-                                <InputLabel sx={{ color: '#aaa' }}>Priority</InputLabel>
-                                <Select value={formData.priority} onChange={e => setFormData(f => ({ ...f, priority: e.target.value as Task['priority'] }))} label="Priority" sx={{ color: '#f0e8e8' }}>
-                                    <MenuItem value="low">Low</MenuItem>
-                                    <MenuItem value="medium">Medium</MenuItem>
-                                    <MenuItem value="high">High</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Box>
+                        <FormControl size="small" fullWidth sx={inputSx}>
+                            <InputLabel sx={{ color: '#aaa' }}>Status</InputLabel>
+                            <Select value={formData.status} onChange={e => setFormData(f => ({ ...f, status: e.target.value as Task['status'] }))} label="Status" sx={{ color: '#f0e8e8' }}>
+                                <MenuItem value="todo">Todo</MenuItem>
+                                <MenuItem value="in_progress">In Progress</MenuItem>
+                                <MenuItem value="done">Done</MenuItem>
+                            </Select>
+                        </FormControl>
                         <Box sx={{ display: 'flex', gap: 2 }}>
                             <TextField label="Due Date" type="date" value={formData.due_date}
                                 onChange={e => setFormData(f => ({ ...f, due_date: e.target.value }))}
@@ -501,7 +456,12 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                         </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: { xs: 2, lg: 2.5 }, pb: { xs: 2, lg: 2.5 } }}>
+                    <Box sx={{
+                        display: 'flex', justifyContent: 'flex-end', gap: 1, px: { xs: 2, lg: 2.5 },
+                        // viewportFit: 'cover' in layout.tsx means the sheet runs under the
+                        // home indicator; without this inset the buttons sit beneath it.
+                        pb: { xs: 'calc(16px + env(safe-area-inset-bottom))', lg: 2.5 },
+                    }}>
                         <Button onClick={() => setFormOpen(false)} sx={{ color: '#aaa', textTransform: 'none', fontSize: { xs: '0.875rem', lg: '1rem' } }}>Cancel</Button>
                         <Button onClick={handleSave} disabled={!formData.title} variant="contained"
                             sx={{ backgroundColor: '#90b4e8', color: '#1e2535', textTransform: 'none', fontWeight: 600, fontSize: { xs: '0.875rem', lg: '1rem' }, '&:hover': { backgroundColor: '#64b5f6' } }}>
@@ -509,6 +469,7 @@ export function TasksClient({ canEdit }: { canEdit: boolean }) {
                         </Button>
                     </Box>
                 </Box>
+                </>
             )}
         </Box>
     );

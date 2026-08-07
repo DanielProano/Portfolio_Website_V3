@@ -7,6 +7,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import EditIcon from '@mui/icons-material/Edit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 interface Folder { id: number; name: string; color: string; }
 interface Card { id: number; folder_id: number; front_text: string; back_text: string; }
@@ -29,6 +31,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
 
     const [dragX, setDragX] = useState(0);
     const [dragY, setDragY] = useState(0);
+    const [navX, setNavX] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [isDraggingToTrash, setIsDraggingToTrash] = useState(false);
     const dragXRef = useRef(0);
@@ -67,6 +70,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
         setEditingCard(null);
         setDragX(0);
         setDragY(0);
+        setNavX(0);
         dragXRef.current = 0;
         dragYRef.current = 0;
     }, []);
@@ -187,7 +191,8 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
         if (isAnimatingRef.current) return;
         isAnimatingRef.current = true;
 
-        const flyX = direction === 'right' ? 650 : -650;
+        // Must exceed the widest card (lg = 560px) so it fully clears the viewport.
+        const flyX = direction === 'right' ? 900 : -900;
         dragXRef.current = flyX;
         dragYRef.current = 0;
         setDragX(flyX);
@@ -214,6 +219,25 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
             }
         }, 380);
     }, [deckIndex, studyDeck]);
+
+    // ── Browse navigation (arrows) ─────────────────────────────────────────────
+    // Unlike swiping, this just moves through the deck — it never scores a card
+    // as "Got It" or "Study Again".
+
+    const navigateCard = useCallback((dir: -1 | 1) => {
+        if (isAnimatingRef.current || isDraggingRef.current) return;
+        const target = deckIndex + dir;
+        if (target < 0 || target >= studyDeck.length) return;
+
+        isAnimatingRef.current = true;
+        setIsFlipped(false);
+        setNavX(dir === 1 ? -40 : 40);
+        setDeckIndex(target);
+        setTimeout(() => {
+            setNavX(0);
+            isAnimatingRef.current = false;
+        }, 160);
+    }, [deckIndex, studyDeck.length]);
 
     // ── Pointer handlers ───────────────────────────────────────────────────────
 
@@ -332,8 +356,8 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
         ? `rgba(72, 199, 116, ${Math.min(absX / 120, 1)})`
         : '#3a4d6b';
 
-    const cardW = { xs: '280px', sm: '360px', md: '420px' };
-    const cardH = { xs: '190px', sm: '240px', md: '270px' };
+    const cardW = { xs: '280px', sm: '360px', md: '480px', lg: '560px' };
+    const cardH = { xs: '190px', sm: '240px', md: '310px', lg: '360px' };
 
     const cardFaceStyle = {
         position: 'absolute' as const,
@@ -584,8 +608,8 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                                         position: 'absolute', inset: 0, zIndex: 10,
                                         touchAction: 'none',
                                         cursor: editingCard ? 'default' : isDragging ? 'grabbing' : 'grab',
-                                        transform: `translateX(${dragX}px) translateY(${dragY}px) rotate(${dragX * 0.03}deg)`,
-                                        transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                                        transform: `translateX(${dragX + navX}px) translateY(${dragY}px) rotate(${dragX * 0.03}deg)`,
+                                        transition: isDragging ? 'none' : navX !== 0 ? 'transform 0.16s ease-out' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                                         perspective: '1200px',
                                     }}
                                 >
@@ -622,7 +646,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                                                     style={textareaStyle}
                                                 />
                                             ) : (
-                                                <Typography sx={{ color: '#fff', fontSize: { xs: '0.88rem', sm: '1rem' }, textAlign: 'center', lineHeight: 1.5, fontWeight: 500, userSelect: 'none' }}>
+                                                <Typography sx={{ color: '#fff', fontSize: { xs: '0.88rem', sm: '1rem', md: '1.15rem', lg: '1.3rem' }, textAlign: 'center', lineHeight: 1.5, fontWeight: 500, userSelect: 'none' }}>
                                                     {currentCard?.front_text || <span style={{ color: '#555' }}>(empty)</span>}
                                                 </Typography>
                                             )}
@@ -658,7 +682,7 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                                                     style={textareaStyle}
                                                 />
                                             ) : (
-                                                <Typography sx={{ color: '#fff', fontSize: { xs: '0.88rem', sm: '1rem' }, textAlign: 'center', lineHeight: 1.5, fontWeight: 500, userSelect: 'none' }}>
+                                                <Typography sx={{ color: '#fff', fontSize: { xs: '0.88rem', sm: '1rem', md: '1.15rem', lg: '1.3rem' }, textAlign: 'center', lineHeight: 1.5, fontWeight: 500, userSelect: 'none' }}>
                                                     {currentCard?.back_text || <span style={{ color: '#555' }}>(empty)</span>}
                                                 </Typography>
                                             )}
@@ -679,10 +703,57 @@ export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
                             </Box>
                         </Box>
 
+                        {/* Card-to-card navigation arrows */}
+                        {!editingCard && studyDeck.length > 1 && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 2, sm: 2.5 } }}>
+                                <Tooltip title="Previous card">
+                                    <span>
+                                        <IconButton
+                                            size="small"
+                                            disabled={deckIndex === 0}
+                                            onClick={e => { e.stopPropagation(); navigateCard(-1); }}
+                                            sx={{
+                                                color: '#90b4e8',
+                                                border: '1px solid #3a4d6b',
+                                                '&:hover': { bgcolor: '#1e2d46', borderColor: '#90b4e8' },
+                                                '&.Mui-disabled': { color: '#2c3a52', borderColor: '#232f45' },
+                                                transition: '0.15s',
+                                            }}
+                                        >
+                                            <ChevronLeftIcon fontSize="small" />
+                                        </IconButton>
+                                    </span>
+                                </Tooltip>
+
+                                <Typography sx={{ color: '#3a4a60', fontSize: '0.7rem', minWidth: 52, textAlign: 'center', userSelect: 'none' }}>
+                                    {deckIndex + 1} / {studyDeck.length}
+                                </Typography>
+
+                                <Tooltip title="Next card">
+                                    <span>
+                                        <IconButton
+                                            size="small"
+                                            disabled={deckIndex >= studyDeck.length - 1}
+                                            onClick={e => { e.stopPropagation(); navigateCard(1); }}
+                                            sx={{
+                                                color: '#90b4e8',
+                                                border: '1px solid #3a4d6b',
+                                                '&:hover': { bgcolor: '#1e2d46', borderColor: '#90b4e8' },
+                                                '&.Mui-disabled': { color: '#2c3a52', borderColor: '#232f45' },
+                                                transition: '0.15s',
+                                            }}
+                                        >
+                                            <ChevronRightIcon fontSize="small" />
+                                        </IconButton>
+                                    </span>
+                                </Tooltip>
+                            </Box>
+                        )}
+
                         {/* Bottom hint */}
                         {!editingCard && (
-                            <Typography variant="caption" sx={{ mt: { xs: 3, sm: 4 }, color: '#3a4a60', fontSize: '0.68rem', textAlign: 'center', px: 2 }}>
-                                tap to flip · drag right ✓ · drag left ✗ · drag to trash to delete · space / ← →
+                            <Typography variant="caption" sx={{ mt: { xs: 1.5, sm: 2 }, color: '#3a4a60', fontSize: '0.68rem', textAlign: 'center', px: 2 }}>
+                                tap to flip · drag right ✓ · drag left ✗ · arrows browse without scoring · drag to trash to delete · space / ← →
                             </Typography>
                         )}
                     </>

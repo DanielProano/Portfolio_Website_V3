@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionSafe } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
 async function getAuthenticatedUserId(): Promise<string | null> {
-    const session = await getSessionSafe();
+    const session = await getUserSession();
     return session?.user?.sub ?? null;
 }
 
@@ -15,13 +15,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     try {
         const pool = getPool();
         const result = await pool.query(
-            `UPDATE tasks SET title=$1, description=$2, status=$3, priority=$4, due_date=$5, due_time=$6, updated_at=NOW()
+            // priority is no longer editable from the Tasks UI — COALESCE keeps whatever
+            // is already stored instead of nulling it out when the client omits it.
+            `UPDATE tasks SET title=$1, description=$2, status=$3, priority=COALESCE($4, priority), due_date=$5, due_time=$6, updated_at=NOW()
              WHERE id=$7 AND user_id=$8
              RETURNING id, title, description, status, priority,
               TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
               TO_CHAR(due_time, 'HH24:MI') AS due_time,
               created_at`,
-            [title, description, status, priority, due_date ?? null, due_time ?? null, params.id, userId]
+            [title, description, status, priority ?? null, due_date ?? null, due_time ?? null, params.id, userId]
         );
         if (result.rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
         return NextResponse.json({ task: result.rows[0] });

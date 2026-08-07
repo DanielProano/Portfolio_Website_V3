@@ -775,17 +775,21 @@ export function AudioClient() {
                     <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
                         <Typography variant="h4" sx={{ fontWeight: 700 }}>Audio</Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Button
-                                startIcon={<DragIndicatorIcon />} onClick={() => setReorderMode(v => !v)} size="small"
-                                sx={{
-                                    textTransform: 'none', fontWeight: 600,
-                                    color: reorderMode ? '#64b5f6' : '#718096',
-                                    backgroundColor: reorderMode ? '#252f42' : 'transparent',
-                                    '&:hover': { color: '#90b4e8', backgroundColor: reorderMode ? '#252f42' : 'transparent' },
-                                }}
-                            >
-                                {reorderMode ? 'Done' : 'Reorder'}
-                            </Button>
+                            <Tooltip title={reorderMode
+                                ? 'Playback is off — drag any row to reorder, or drag a song onto a folder to move it'
+                                : 'Reorder folders and songs by dragging'}>
+                                <Button
+                                    startIcon={<DragIndicatorIcon />} onClick={() => setReorderMode(v => !v)} size="small"
+                                    sx={{
+                                        textTransform: 'none', fontWeight: 600,
+                                        color: reorderMode ? '#64b5f6' : '#718096',
+                                        backgroundColor: reorderMode ? '#252f42' : 'transparent',
+                                        '&:hover': { color: '#90b4e8', backgroundColor: reorderMode ? '#252f42' : 'transparent' },
+                                    }}
+                                >
+                                    {reorderMode ? 'Done' : 'Reorder'}
+                                </Button>
+                            </Tooltip>
                             <Button
                                 startIcon={<LockOutlinedIcon />} onClick={handleLock} size="small"
                                 sx={{
@@ -859,45 +863,40 @@ export function AudioClient() {
                                             if (e.dataTransfer?.files?.length) stageFiles(Array.from(e.dataTransfer.files), folder.id);
                                         }}
                                     >
-                                        {/* Folder header */}
-                                        <Box sx={{
-                                            display: 'flex', alignItems: 'center', gap: 0.5,
-                                            px: 1, py: 0.75, borderRadius: 2, minHeight: FOLDER_ROW_HEIGHT,
-                                            backgroundColor: trackHovering || fileHovering ? '#2a3550' : beingDragged ? '#1a2030' : '#252f42',
-                                            border: '1px solid',
-                                            borderColor: trackHovering || fileHovering ? '#90b4e8' : beingDragged ? '#64b5f6' : '#3a4255',
-                                            opacity: beingDragged ? 0.5 : 1,
-                                            transition: folderDrag?.isDragging ? 'none' : 'background-color 0.15s, border-color 0.15s',
-                                            userSelect: 'none',
-                                            '&:hover .rowActions': { opacity: 1 },
-                                        }}>
+                                        {/* Folder header — the whole row is the drag surface in reorder mode */}
+                                        <Box
+                                            onPointerDown={reorderMode ? e => startFolderDrag(e, folder.id, folderIndex) : undefined}
+                                            onPointerMove={reorderMode ? moveFolderDrag : undefined}
+                                            onPointerUp={reorderMode ? endFolderDrag : undefined}
+                                            onPointerCancel={reorderMode ? () => setFolderDrag(null) : undefined}
+                                            sx={{
+                                                display: 'flex', alignItems: 'center', gap: 0.5,
+                                                px: 1, py: 0.75, borderRadius: 2, minHeight: FOLDER_ROW_HEIGHT,
+                                                backgroundColor: trackHovering || fileHovering ? '#2a3550' : beingDragged ? '#1a2030' : '#252f42',
+                                                border: '1px solid',
+                                                borderColor: trackHovering || fileHovering ? '#90b4e8' : beingDragged ? '#64b5f6' : '#3a4255',
+                                                opacity: beingDragged ? 0.5 : 1,
+                                                transition: folderDrag?.isDragging ? 'none' : 'background-color 0.15s, border-color 0.15s',
+                                                userSelect: 'none',
+                                                cursor: reorderMode ? (folderDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
+                                                touchAction: reorderMode ? 'none' : 'auto',
+                                                '&:hover .rowActions': { opacity: 1 },
+                                            }}>
                                             {reorderMode && (
-                                                <IconButton
-                                                    size="small"
-                                                    onPointerDown={e => startFolderDrag(e, folder.id, folderIndex)}
-                                                    onPointerMove={moveFolderDrag}
-                                                    onPointerUp={endFolderDrag}
-                                                    onPointerCancel={() => setFolderDrag(null)}
-                                                    sx={{
-                                                        color: '#4a5568', p: 0.75, touchAction: 'none',
-                                                        cursor: folderDrag?.isDragging ? 'grabbing' : 'grab',
-                                                        '&:hover': { color: '#90b4e8' },
-                                                    }}
-                                                >
-                                                    <DragIndicatorIcon sx={{ fontSize: 22 }} />
-                                                </IconButton>
+                                                <DragIndicatorIcon sx={{ fontSize: 22, color: '#4a5568', flexShrink: 0, pointerEvents: 'none' }} />
                                             )}
 
-                                            <IconButton size="small" onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: 0.6 }}>
+                                            <IconButton size="small" onPointerDown={e => e.stopPropagation()} onClick={() => toggleFolder(folder.id)} sx={{ color: '#90b4e8', p: 0.6 }}>
                                                 {isExpanded ? <ExpandMoreIcon sx={{ fontSize: 22 }} /> : <ChevronRightIcon sx={{ fontSize: 22 }} />}
                                             </IconButton>
                                             <FolderIcon sx={{ color: '#90b4e8', fontSize: 20, flexShrink: 0 }} />
                                             <Typography
-                                                onClick={() => toggleFolder(folder.id)}
+                                                onClick={() => { if (!reorderMode) toggleFolder(folder.id); }}
                                                 noWrap
                                                 sx={{
                                                     flex: 1, minWidth: 0, fontWeight: 600, fontSize: '0.95rem', color: '#f0e8e8',
-                                                    cursor: 'pointer', '&:hover': { color: '#90b4e8' }, transition: 'color 0.15s',
+                                                    cursor: reorderMode ? 'inherit' : 'pointer',
+                                                    '&:hover': { color: reorderMode ? '#f0e8e8' : '#90b4e8' }, transition: 'color 0.15s',
                                                 }}
                                             >
                                                 {folder.name}
@@ -908,6 +907,7 @@ export function AudioClient() {
 
                                             <IconButton
                                                 size="small" className="rowActions"
+                                                onPointerDown={e => e.stopPropagation()}
                                                 onClick={e => setFolderMenu({ el: e.currentTarget, folder })}
                                                 sx={{
                                                     color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 },
@@ -930,11 +930,17 @@ export function AudioClient() {
                                                             const busy = loadingTrack?.id === t.id;
                                                             const isEditing = editingId === t.id;
                                                             const dragging = trackDrag?.track.id === t.id && trackDrag.isDragging;
-                                                            const handleRowClick = () => { if (!isEditing && !busy) (active && isPlaying ? togglePlay() : playTrack(t)); };
+                                                            // In reorder mode the row is a drag surface, not a play button.
+                                                            const handleRowClick = () => { if (!reorderMode && !isEditing && !busy) (active && isPlaying ? togglePlay() : playTrack(t)); };
+                                                            const rowDraggable = reorderMode && !isEditing;
                                                             return (
                                                                 <Box key={t.id}>
                                                                     <Box
                                                                         onClick={handleRowClick}
+                                                                        onPointerDown={rowDraggable ? e => startTrackDrag(e, t, trackIndex) : undefined}
+                                                                        onPointerMove={rowDraggable ? moveTrackDrag : undefined}
+                                                                        onPointerUp={rowDraggable ? endTrackDrag : undefined}
+                                                                        onPointerCancel={rowDraggable ? () => setTrackDrag(null) : undefined}
                                                                         sx={{
                                                                             display: 'flex', alignItems: 'center', gap: 0.5,
                                                                             px: 0.75, py: 0.5, mb: 0.5, borderRadius: 1.5,
@@ -944,10 +950,15 @@ export function AudioClient() {
                                                                             borderColor: dragging ? '#64b5f6' : active ? '#3d5280' : isEditing ? '#90b4e8' : '#2d3748',
                                                                             opacity: dragging ? 0.4 : 1,
                                                                             transition: trackDrag?.isDragging ? 'none' : 'opacity 0.15s, border-color 0.15s',
-                                                                            cursor: isEditing ? 'default' : 'pointer',
+                                                                            cursor: isEditing ? 'default' : rowDraggable ? (trackDrag?.isDragging ? 'grabbing' : 'grab') : 'pointer',
+                                                                            touchAction: rowDraggable ? 'none' : 'auto',
+                                                                            userSelect: rowDraggable ? 'none' : 'auto',
                                                                             '&:hover .trackActions': { opacity: 1 },
                                                                         }}
                                                                     >
+                                                                        {reorderMode && (
+                                                                            <DragIndicatorIcon sx={{ fontSize: 20, color: '#4a5568', flexShrink: 0, pointerEvents: 'none' }} />
+                                                                        )}
                                                                         {isEditing ? (
                                                                             <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, alignItems: 'center', flexWrap: 'wrap', py: 0.5 }}>
                                                                                 <TextField
@@ -982,8 +993,8 @@ export function AudioClient() {
                                                                             <Typography
                                                                                 noWrap
                                                                                 onClick={e => { e.stopPropagation(); handleRowClick(); }}
-                                                                                onDoubleClick={() => { setEditingId(t.id); setDraftTitle(t.title); setDraftFolderId(t.folder_id); }}
-                                                                                sx={{ flexGrow: 1, minWidth: 0, fontSize: '0.9rem', color: active ? '#64b5f6' : '#f0e8e8', cursor: isEditing ? 'default' : 'pointer' }}
+                                                                                onDoubleClick={() => { if (!reorderMode) { setEditingId(t.id); setDraftTitle(t.title); setDraftFolderId(t.folder_id); } }}
+                                                                                sx={{ flexGrow: 1, minWidth: 0, fontSize: '0.9rem', color: active ? '#64b5f6' : '#f0e8e8', cursor: 'inherit' }}
                                                                             >
                                                                                 {t.title}
                                                                             </Typography>
@@ -992,27 +1003,9 @@ export function AudioClient() {
                                                                         <Typography sx={{ fontSize: '0.75rem', color: '#4a5568', fontVariantNumeric: 'tabular-nums' }}>
                                                                             {formatTime(t.duration_seconds)}
                                                                         </Typography>
-                                                                        {reorderMode && (
-                                                                            <Tooltip title="Reorder, or drag onto a folder to move it there">
-                                                                                <IconButton
-                                                                                    size="small"
-                                                                                    onPointerDown={e => { if (!isEditing) startTrackDrag(e, t, trackIndex); }}
-                                                                                    onPointerMove={moveTrackDrag}
-                                                                                    onPointerUp={endTrackDrag}
-                                                                                    onPointerCancel={() => setTrackDrag(null)}
-                                                                                    onClick={e => e.stopPropagation()}
-                                                                                    sx={{
-                                                                                        color: '#4a5568', p: 0.75, touchAction: 'none',
-                                                                                        cursor: trackDrag?.isDragging ? 'grabbing' : 'grab',
-                                                                                        '&:hover': { color: '#90b4e8' },
-                                                                                    }}
-                                                                                >
-                                                                                    <DragIndicatorIcon sx={{ fontSize: 20 }} />
-                                                                                </IconButton>
-                                                                            </Tooltip>
-                                                                        )}
                                                                         <IconButton
                                                                             size="small" className="trackActions"
+                                                                            onPointerDown={e => e.stopPropagation()}
                                                                             onClick={e => { e.stopPropagation(); setTrackMenu({ el: e.currentTarget, track: t }); }}
                                                                             sx={{
                                                                                 color: '#4a5568', p: 0.75, opacity: { xs: 1, lg: 0 },

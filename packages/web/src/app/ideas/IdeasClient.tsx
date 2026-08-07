@@ -379,7 +379,7 @@ export function IdeasClient({ canEdit }: { canEdit: boolean }) {
     return (
         <Box sx={{ backgroundColor: '#1a2030', color: '#f0e8e8', minHeight: `calc(100vh - ${TOPBAR_OFFSET}px)` }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 4 }}>
-                <Box sx={{ maxWidth: 760 }}>
+                <Box sx={{ maxWidth: 1200 }}>
 
                     {/* Header */}
                     <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>

@@ -5,7 +5,6 @@ import { Box, Container, Typography, Stack, Chip, IconButton, Tooltip, Button } 
 import Image from 'next/image';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import EmailIcon from '@mui/icons-material/Email';
 
 const projects = [
   { id: 1, image: '/projects/slideshow/team_with_kart.JPG', title: 'Autonomous Team', href: 'https://dannyproano.com/' },
@@ -95,14 +94,8 @@ const highlights = [
 
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [emailCopied, setEmailCopied] = useState(false);
 
-  const handleCopyEmail = () => {
-    navigator.clipboard.writeText('daniel.proano@yahoo.com');
-    setEmailCopied(true);
-    setTimeout(() => setEmailCopied(false), 2000);
-  };
-  const handlePrev = () => setCurrentIndex((prev) => (prev - 1 + projects.length) % projects.length);
+  const handlePrev =() => setCurrentIndex((prev) => (prev - 1 + projects.length) % projects.length);
   const handleNext = () => setCurrentIndex((prev) => (prev + 1) % projects.length);
 
   useEffect(() => {
@@ -164,7 +157,8 @@ export default function Home() {
             everything from race cars to drones to rocket ships!
           </Typography>
 
-          {/* Social links — update LinkedIn href and mailto below */}
+          {/* Social links. No email here by design — anything in this bundle is
+              public and scrapeable, even behind a click handler. */}
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Tooltip title="GitHub">
               <IconButton
@@ -186,14 +180,6 @@ export default function Home() {
                 sx={{ color: '#aaa', '&:hover': { color: '#0a66c2' }, p: 0.75 }}
               >
                 <LinkedInIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={emailCopied ? 'Copied!' : 'daniel.proano@yahoo.com'}>
-              <IconButton
-                onClick={handleCopyEmail}
-                sx={{ color: '#aaa', '&:hover': { color: '#64b5f6' }, p: 0.75 }}
-              >
-                <EmailIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>

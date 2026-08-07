@@ -4,6 +4,20 @@ export const auth0 = new Auth0Client({
     authorizationParameters: {
         acr_values: "http://schemas.openid.net/papi/phd",
     },
+    session: {
+        cookie: {
+            // Pinned in code, not left to AUTH0_COOKIE_SECURE. The library default is
+            // `secure: false`, which lets the session cookie ride along on a plaintext
+            // http:// request to this host — an attacker on the same network can then
+            // capture it and take over the account. Off in dev so localhost still works.
+            secure: process.env.NODE_ENV === 'production',
+            // Also pinned: there are no CSRF tokens anywhere in this app, so every
+            // state-changing POST is protected solely by the browser refusing to send
+            // this cookie cross-site. AUTH0_COOKIE_SAME_SITE could otherwise silently
+            // relax that to "none" and open every mutation route at once.
+            sameSite: 'lax',
+        },
+    },
 });
 
 // Returns null instead of throwing when Auth0 env vars are not yet configured
