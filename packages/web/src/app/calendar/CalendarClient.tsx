@@ -144,7 +144,7 @@ function emptyForm(date: Date, startH = 9, startM = 0): FormData {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
+export function CalendarClient({ canEdit }: { canEdit: boolean }) {
     const router = useRouter();
     const today = new Date();
     const [viewMonth, setViewMonth] = useState(today);
@@ -247,7 +247,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     // ── Timeline click → open create form at click position ──
 
     const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!isAdmin || dragJustEndedRef.current || !timelineScrollRef.current) return;
+        if (!canEdit || dragJustEndedRef.current || !timelineScrollRef.current) return;
 
         const rect = timelineScrollRef.current.getBoundingClientRect();
         const relY = e.clientY - rect.top + timelineScrollRef.current.scrollTop;
@@ -386,7 +386,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
     // ── Event drag to reschedule ──
 
     const handleEventPointerDown = (e: React.PointerEvent, event: CalendarEvent) => {
-        if (!isAdmin) return;
+        if (!canEdit) return;
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
         const rect = e.currentTarget.getBoundingClientRect();
@@ -753,7 +753,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                     <Typography variant="h6" sx={{ color: '#f0e8e8', fontWeight: 600 }}>
                         {selectedDay.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
                     </Typography>
-                    {isAdmin && (
+                    {canEdit && (
                         <Typography sx={{ color: '#4a5568', fontSize: '0.75rem', fontStyle: 'italic' }}>
                             Click to add · Drag to reschedule
                         </Typography>
@@ -768,7 +768,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                         flex: '0 0 62%',
                         overflow: 'hidden',
                         position: 'relative',
-                        cursor: isAdmin ? 'crosshair' : 'default',
+                        cursor: canEdit ? 'crosshair' : 'default',
                     }}
                 >
                     <Box sx={{ position: 'relative', height: `${(DAY_END - DAY_START) * hourHeight}px` }}>
@@ -817,7 +817,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 : isResizingTop
                                     ? Math.max(baseHeight - dy, hourHeight / 4)
                                     : baseHeight;
-                            const showNotesPanel = isAdmin && selectedEvent?.id === event.id && !isDraggingThis;
+                            const showNotesPanel = canEdit && selectedEvent?.id === event.id && !isDraggingThis;
                             return (
                                 <Box
                                     key={event.id}
@@ -827,7 +827,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                     onPointerCancel={() => { setEventDrag(null); setDragDropDay(null); }}
                                     onClick={e => {
                                         e.stopPropagation();
-                                        if (!isAdmin) setSelectedEvent(event);
+                                        if (!canEdit) setSelectedEvent(event);
                                     }}
                                     sx={{
                                         position: 'absolute',
@@ -841,7 +841,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                         overflow: 'hidden',
                                         boxSizing: 'border-box',
                                         userSelect: 'none',
-                                        cursor: isAdmin
+                                        cursor: canEdit
                                             ? (isMoving ? 'grabbing' : isDraggingThis ? 'ns-resize' : 'grab')
                                             : 'pointer',
                                         transform: isMoving ? `translateY(${dy}px)` : undefined,
@@ -902,7 +902,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                             )}
                                         </Box>
                                     )}
-                                    {isAdmin && (
+                                    {canEdit && (
                                         <>
                                             <Box sx={{
                                                 position: 'absolute', top: 0, left: 0, right: 0,
@@ -993,7 +993,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                     </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 0.25 } }}>
-                                    {isAdmin && (
+                                    {canEdit && (
                                         <>
                                             <Tooltip title={taskCreatedId === selectedEvent.id ? 'Task created!' : 'Create Task'}>
                                                 <IconButton onClick={() => handleCreateTaskFromEvent(selectedEvent)} sx={{ color: taskCreatedId === selectedEvent.id ? '#81c784' : '#ffb74d', p: { xs: 1, sm: 0.5 } }}>
@@ -1024,7 +1024,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                 {formatTime(selectedEvent.start_time)} – {formatTime(selectedEvent.end_time)}
                             </Typography>
 
-                            {isAdmin ? (
+                            {canEdit ? (
                                 <TextField
                                     multiline
                                     fullWidth
@@ -1043,7 +1043,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
                                         },
                                     }}
                                 />
-                            ) : !isAdmin ? (
+                            ) : !canEdit ? (
                                 <Typography sx={{ color: '#718096', fontSize: '0.85rem', fontStyle: 'italic' }}>
                                     Sign in to view details.
                                 </Typography>
@@ -1058,7 +1058,7 @@ export function CalendarClient({ isAdmin }: { isAdmin: boolean }) {
             </Box>
 
             {/* ── Centered form modal ── */}
-            {isAdmin && formOpen && (
+            {canEdit && formOpen && (
                 <Box sx={{
                     position: 'fixed',
                     left: '50%',

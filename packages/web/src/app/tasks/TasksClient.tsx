@@ -89,7 +89,7 @@ function formatDueDate(due_date: string | null, due_time: string | null): string
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
+export function TasksClient({ canEdit }: { canEdit: boolean }) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [filter, setFilter] = useState<TaskFilter>('all');
     const [formOpen, setFormOpen] = useState(false);
@@ -114,8 +114,8 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
     }, []);
 
     useEffect(() => {
-        if (isAdmin) fetchTasks();
-    }, [isAdmin, fetchTasks]);
+        if (canEdit) fetchTasks();
+    }, [canEdit, fetchTasks]);
 
     const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
 
@@ -284,7 +284,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
             {/* Header */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, borderBottom: '1px solid #4a5568', flexShrink: 0 }}>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>Tasks</Typography>
-                {isAdmin && (
+                {canEdit && (
                     <Button
                         startIcon={<AddIcon />}
                         onClick={openCreate}
@@ -332,7 +332,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
 
             {/* Task list */}
             <Box sx={{ flex: 1, overflowY: 'auto', px: 3, pb: 3 }}>
-                {!isAdmin && tasks.length === 0 ? (
+                {!canEdit && tasks.length === 0 ? (
                     <Typography sx={{ color: '#4a5568', fontStyle: 'italic', mt: 4, textAlign: 'center' }}>
                         Sign in to manage tasks.
                     </Typography>
@@ -348,10 +348,10 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                         return (
                             <Box
                                 key={task.id}
-                                onPointerDown={isAdmin ? e => handleTaskDragStart(e, task.id, index) : undefined}
-                                onPointerMove={isAdmin ? handleTaskDragMove : undefined}
-                                onPointerUp={isAdmin ? handleTaskDragEnd : undefined}
-                                onPointerCancel={isAdmin ? () => { setTaskDrag(null); hoverTabRef.current = null; setHoverTab(null); } : undefined}
+                                onPointerDown={canEdit ? e => handleTaskDragStart(e, task.id, index) : undefined}
+                                onPointerMove={canEdit ? handleTaskDragMove : undefined}
+                                onPointerUp={canEdit ? handleTaskDragEnd : undefined}
+                                onPointerCancel={canEdit ? () => { setTaskDrag(null); hoverTabRef.current = null; setHoverTab(null); } : undefined}
                                 sx={{
                                     backgroundColor: '#252f42',
                                     borderRadius: 2,
@@ -363,15 +363,15 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                     opacity: isBeingDragged ? 0.5 : isDone ? 0.65 : 1,
                                     outline: isBeingDragged ? '1px solid #64b5f6' : 'none',
                                     transition: taskDrag?.isDragging ? 'none' : 'opacity 0.2s',
-                                    cursor: isAdmin ? (taskDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
+                                    cursor: canEdit ? (taskDrag?.isDragging ? 'grabbing' : 'grab') : 'default',
                                     userSelect: 'none',
                                 }}
                             >
                                 <Checkbox
                                     checked={isDone}
                                     onPointerDown={e => e.stopPropagation()}
-                                    onChange={() => isAdmin && handleToggle(task)}
-                                    disabled={!isAdmin}
+                                    onChange={() => canEdit && handleToggle(task)}
+                                    disabled={!canEdit}
                                     size="small"
                                     sx={{ color: '#4a5568', '&.Mui-checked': { color: '#90b4e8' }, mt: '-2px', p: 0.5 }}
                                 />
@@ -415,7 +415,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
                                             {dueLabel}
                                         </Typography>
                                     )}
-                                    {isAdmin && (
+                                    {canEdit && (
                                         <>
                                             <Tooltip title="Edit">
                                                 <IconButton onPointerDown={e => e.stopPropagation()} onClick={() => openEdit(task)} sx={{ color: '#64b5f6', p: { xs: 0.5, lg: 0.75 } }}>
@@ -437,7 +437,7 @@ export function TasksClient({ isAdmin }: { isAdmin: boolean }) {
             </Box>
 
             {/* Centered form modal */}
-            {isAdmin && formOpen && (
+            {canEdit && formOpen && (
                 <Box sx={{
                     position: 'fixed',
                     left: '50%',

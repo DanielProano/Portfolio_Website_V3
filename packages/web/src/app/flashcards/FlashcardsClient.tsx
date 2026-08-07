@@ -15,7 +15,7 @@ interface EditState { id: number | null; front: string; back: string; }
 const FOLDER_COLORS = ['#4a6fa5', '#5c8a5c', '#8a5c5c', '#7c5c8a', '#5c8a8a', '#8a7a4a'];
 const SWIPE_THRESHOLD = 100;
 
-export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
+export function FlashcardsClient({ canEdit }: { canEdit: boolean }) {
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
     const [allCards, setAllCards] = useState<Card[]>([]);
@@ -49,12 +49,12 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
     const folderSavingRef = useRef(false);
 
     useEffect(() => {
-        if (!isAdmin) return;
+        if (!canEdit) return;
         fetch('/api/flashcards/folders')
             .then(r => r.json())
             .then(d => setFolders(d.folders ?? []))
             .catch(console.error);
-    }, [isAdmin]);
+    }, [canEdit]);
 
     const startSession = useCallback((cards: Card[]) => {
         const shuffled = [...cards].sort(() => Math.random() - 0.5);
@@ -404,7 +404,7 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
                         <Typography sx={{ fontSize: '0.8rem', color: '#ddd', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {folder.name}
                         </Typography>
-                        {isAdmin && (
+                        {canEdit && (
                             <IconButton
                                 className="del"
                                 onClick={e => deleteFolder(folder.id, e)}
@@ -417,7 +417,7 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
                     </Box>
                 ))}
 
-                {isAdmin && (addingFolder ? (
+                {canEdit && (addingFolder ? (
                     <TextField
                         autoFocus
                         value={newFolderName}
@@ -469,7 +469,7 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
 
                 {!selectedFolderId ? (
                     <Box sx={{ textAlign: 'center', color: '#555' }}>
-                        {isAdmin ? (
+                        {canEdit ? (
                             <>
                                 <Typography variant="h6" sx={{ mb: 1, color: '#888' }}>Select a folder to start</Typography>
                                 <Typography variant="body2">or create one on the left</Typography>
@@ -489,7 +489,7 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
                 ) : studyDeck.length === 0 && !editingCard ? (
                     <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" sx={{ mb: 2, color: '#888' }}>No cards in this folder yet</Typography>
-                        {isAdmin && (
+                        {canEdit && (
                             <Button variant="outlined" onClick={startNewCard}
                                 sx={{ color: '#90b4e8', borderColor: '#3d5280', textTransform: 'none', '&:hover': { borderColor: '#90b4e8', bgcolor: '#1e2d46' } }}>
                                 + Create First Card
@@ -537,7 +537,7 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                                 {!editingCard && (
                                     <>
-                                        {isAdmin && (
+                                        {canEdit && (
                                             <Button size="small" startIcon={<AddIcon sx={{ fontSize: 14 }} />}
                                                 onClick={e => { e.stopPropagation(); startNewCard(); }}
                                                 sx={{ color: '#90b4e8', fontSize: '0.75rem', textTransform: 'none', '&:hover': { bgcolor: '#1e2d46' } }}>
@@ -626,7 +626,7 @@ export function FlashcardsClient({ isAdmin }: { isAdmin: boolean }) {
                                                     {currentCard?.front_text || <span style={{ color: '#555' }}>(empty)</span>}
                                                 </Typography>
                                             )}
-                                            {isAdmin && !editingCard && currentCard && (
+                                            {canEdit && !editingCard && currentCard && (
                                                 <Box sx={{ position: 'absolute', bottom: 8, right: 8 }}>
                                                     <IconButton size="small"
                                                         onPointerDown={e => e.stopPropagation()}

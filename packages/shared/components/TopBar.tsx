@@ -48,7 +48,9 @@ const iconStyle = {
     }
 };
 
-export function TopBar({ authButton, isLoggedIn, isAdmin }: { authButton?: ReactNode; isLoggedIn?: boolean; isAdmin?: boolean }) {
+// The Features menu is gated on being signed in, not on being admin — every user
+// gets their own isolated copy of each feature.
+export function TopBar({ authButton, isLoggedIn }: { authButton?: ReactNode; isLoggedIn?: boolean }) {
     const router = useRouter();
     const [isVisible, setIsVisible] = useState(true);
     const lastScrollY = useRef(0);
@@ -144,7 +146,7 @@ export function TopBar({ authButton, isLoggedIn, isAdmin }: { authButton?: React
                             <MenuItem value="tasks">Tasks</MenuItem>
                             <MenuItem value="flashcards">Flashcards</MenuItem>
                             <MenuItem value="ideas">Ideas</MenuItem>
-                            {isAdmin && <MenuItem value="audio">Audio</MenuItem>}
+                            <MenuItem value="audio">Audio</MenuItem>
                         </Select>
                     )}
                 </Box>

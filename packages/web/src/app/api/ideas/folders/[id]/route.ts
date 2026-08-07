@@ -18,15 +18,23 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ folder: result.rows[0] });
 }
 
+/** Deleting a folder deletes the ideas inside it (ON DELETE CASCADE). */
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
     const session = await getSessionSafe();
     if (!session?.user?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pool = getPool();
-    const result = await pool.query(
-        'DELETE FROM idea_folders WHERE id=$1 AND user_id=$2 RETURNING id',
+    const owned = await pool.query(
+        'SELECT id FROM idea_folders WHERE id=$1 AND user_id=$2',
         [params.id, session.user.sub]
     );
-    if (result.rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ ok: true });
+    if (owned.rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    const contents = await pool.query(
+        'SELECT COUNT(*)::int AS n FROM ideas WHERE folder_id=$1 AND user_id=$2',
+        [params.id, session.user.sub]
+    );
+    await pool.query('DELETE FROM idea_folders WHERE id=$1 AND user_id=$2', [params.id, session.user.sub]);
+
+    return NextResponse.json({ ok: true, deleted_ideas: contents.rows[0].n });
 }

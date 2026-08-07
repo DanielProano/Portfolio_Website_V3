@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 import { deleteObject } from '@/lib/r2';
 
@@ -9,7 +9,7 @@ function validBlob(value: unknown): boolean {
 
 /** Renames a track and/or moves it to another folder. The name arrives encrypted. */
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { title_enc, folder_id } = await request.json();
@@ -43,7 +43,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pool = getPool();

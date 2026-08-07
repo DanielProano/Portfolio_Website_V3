@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 import { presignPlayback, isR2Configured } from '@/lib/r2';
 
@@ -10,7 +10,7 @@ const EXPIRES_IN = 3600;
  * and never transit Vercel, which keeps this off Vercel's egress entirely.
  */
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     if (!isR2Configured()) {

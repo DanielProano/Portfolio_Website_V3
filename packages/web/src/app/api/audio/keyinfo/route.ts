@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
 /**
@@ -11,7 +11,7 @@ import { getPool } from '@/lib/db';
  * ever learning the key.
  */
 export async function GET() {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pool = getPool();
@@ -36,7 +36,7 @@ export async function GET() {
  * encrypted under the old passphrase.
  */
 export async function POST(request: NextRequest) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { verifier } = await request.json();

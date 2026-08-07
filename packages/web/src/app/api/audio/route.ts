@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
 const TRACK_COLUMNS = `id, folder_id, title_enc, duration_seconds, mime_type,
@@ -7,7 +7,7 @@ const TRACK_COLUMNS = `id, folder_id, title_enc, duration_seconds, mime_type,
 
 /** Scoped to one folder so the client can load contents lazily as folders expand. */
 export async function GET(request: NextRequest) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const folderId = new URL(request.url).searchParams.get('folder_id');
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
 /** Bulk reorder, and/or move songs between folders (drag-and-drop). */
 export async function PATCH(request: NextRequest) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { updates } = await request.json() as {

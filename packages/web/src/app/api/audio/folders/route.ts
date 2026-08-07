@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
 function validBlob(value: unknown): boolean {
@@ -12,7 +12,7 @@ function validBlob(value: unknown): boolean {
  * listing wouldn't already.
  */
 export async function GET() {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pool = getPool();
@@ -30,7 +30,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { name_enc } = await request.json();
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { updates } = await request.json() as { updates: { id: number; sort_order: number }[] };

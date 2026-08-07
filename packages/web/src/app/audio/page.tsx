@@ -14,9 +14,9 @@ export const metadata = {
 
 export default async function AudioPage() {
     const session = await getSessionSafe();
+    // Every signed-in user gets their own encrypted library, keyed by their own
+    // passphrase. Signed-out visitors never reach the client.
     if (!session) redirect('/auth/login');
-    // Admin-only: signed-in non-admins are bounced, not shown an empty library.
-    if (!process.env.ADMIN_EMAIL || session.user.email !== process.env.ADMIN_EMAIL) redirect('/');
     return (
         <>
             {/* Warms the TLS connection to R2 ahead of the first track click — playback

@@ -35,7 +35,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <TopBar
               authButton={<AuthButton />}
               isLoggedIn={!!session}
-              isAdmin={!!session && session.user.email === process.env.ADMIN_EMAIL}
             />
             {children}
           </AudioPlayerProvider>

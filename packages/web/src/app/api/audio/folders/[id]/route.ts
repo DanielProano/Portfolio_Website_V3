@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 import { deleteObject } from '@/lib/r2';
 
@@ -8,7 +8,7 @@ function validBlob(value: unknown): boolean {
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { name_enc } = await request.json();
@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
  * only record of where the bytes live.
  */
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pool = getPool();

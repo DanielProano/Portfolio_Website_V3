@@ -2,13 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionSafe } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
+/**
+ * idea_count is computed server-side so a collapsed folder can still show how much
+ * is inside it — the client only fetches a folder's ideas when it expands.
+ */
 export async function GET() {
     const session = await getSessionSafe();
     if (!session?.user?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pool = getPool();
     const result = await pool.query(
-        'SELECT id, name, sort_order, created_at FROM idea_folders WHERE user_id=$1 ORDER BY sort_order ASC NULLS LAST, created_at ASC',
+        `SELECT f.id, f.name, f.sort_order, f.created_at,
+                COUNT(i.id)::int AS idea_count
+         FROM idea_folders f
+         LEFT JOIN ideas i ON i.folder_id = f.id AND i.user_id = f.user_id
+         WHERE f.user_id = $1
+         GROUP BY f.id
+         ORDER BY f.sort_order ASC NULLS LAST, f.created_at ASC`,
         [session.user.sub]
     );
     return NextResponse.json({ folders: result.rows });
@@ -23,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const pool = getPool();
     const result = await pool.query(
-        'INSERT INTO idea_folders (user_id, name) VALUES ($1, $2) RETURNING id, name, sort_order, created_at',
+        'INSERT INTO idea_folders (user_id, name) VALUES ($1, $2) RETURNING id, name, sort_order, created_at, 0 AS idea_count',
         [session.user.sub, name.trim()]
     );
     return NextResponse.json({ folder: result.rows[0] }, { status: 201 });

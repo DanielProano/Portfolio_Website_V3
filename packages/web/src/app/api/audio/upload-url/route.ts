@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 import { buildObjectKey, presignUpload, isR2Configured } from '@/lib/r2';
 
@@ -29,7 +29,7 @@ function validBlob(value: unknown): boolean {
 }
 
 export async function POST(request: NextRequest) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     if (!isR2Configured()) {

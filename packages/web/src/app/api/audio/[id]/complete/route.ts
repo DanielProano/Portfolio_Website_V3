@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminSession } from '@/lib/auth0';
+import { getUserSession } from '@/lib/auth0';
 import { getPool } from '@/lib/db';
 
 /** Flips a pending upload to 'ready' once the browser's direct-to-R2 PUT succeeds. */
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getAdminSession();
+    const session = await getUserSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const pool = getPool();
